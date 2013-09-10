@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8" ?><WARRIOR><Ability><Name>--Config</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>--Code By Crystal_tech
+
+------------------------
+-- Initalize Data File--
+------------------------
+if PQR_RotationStarted then
+	PQR_RotationStarted = false
+
+	-- Tables
+	Nova_ValueCheck = { 
+		[1] =	{ Var1 = nil,	Text = &amp;quot;Shout Settings&amp;quot;,				Var2 = nil },
+		[2] =	{ Var1 = nil,	Text = &amp;quot;Use Battle Shout&amp;quot;,				Var2 = 1 },
+		[3] =	{ Var1 = nil,	Text = &amp;quot;Use Commanding Shout&amp;quot;,			Var2 = 0 }
+	}
+	Nova_CooldownCheck = {
+			--Change Mod = # to the key you want it to default to
+		-- 1 = lShift, 2 = lCtrl, 4 = lAlt, 8 = rShift, 1 6= rCtrl, 32 = rAlt
+		[1] = { Mod = 32,	Text = &amp;quot;Shield Wall&amp;quot;,				Var1 = 1},
+		[2] = { Mod = 2,	Text = &amp;quot;Taunt/Heroic Throw&amp;quot;,		Var1 = 1},
+		[3] = { Mod = 4,	Text = &amp;quot;Pause Rotation&amp;quot;,			Var1 = 1},
+		[4] = { Mod = 1,	Text = &amp;quot;Dragon Roar&amp;quot;,				Var1 = 1},
+		[5] = { Mod = 16,	Text = &amp;quot;Heroic Leap&amp;quot;,				Var1 = 1},
+		[6] = { Mod = 8, 	Text = &amp;quot;5&amp;quot;,							Var1 = 0}
+	}
+	
+	-- CVar Registration
+	for i=1,#Nova_ValueCheck do
+		if GetCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_ValueCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;)) == nil then
+			RegisterCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_ValueCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;), Nova_ValueCheck[i].Var1)
+		end
+		if GetCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_ValueCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;)..&amp;quot;_Enabled&amp;quot;) == nil then
+			RegisterCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_ValueCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;)..&amp;quot;_Enabled&amp;quot;, Nova_ValueCheck[i].Var2)
+		end
+	end
+	for i=1,#Nova_CooldownCheck do
+		if GetCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_CooldownCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;)) == nil then
+			RegisterCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_CooldownCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;), Nova_CooldownCheck[i].Mod)
+		end
+		if GetCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_CooldownCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;)..&amp;quot;_Enabled&amp;quot;) == nil then
+			RegisterCVar(&amp;quot;Nova_&amp;quot;..string.gsub(Nova_CooldownCheck[i].Text,&amp;quot;%s&amp;quot;,&amp;quot;_&amp;quot;)..&amp;quot;_Enabled&amp;quot;, Nova_CooldownCheck[i].Var1)
+		end
+	end
+	
+	---Load Data File
+	if PQR_LoadLua ~= nil then
+		if PQR_LoadLua(&amp;quot;PQR_Nova_Data.lua&amp;quot;) == false then
+			PQR_WriteToChat(&amp;quot;You are missing PQR_Nova_Data.lua. Rotation has been stopped.&amp;quot;, &amp;quot;Error&amp;quot;)
+			PQR_StopRotation()
+			return true
+		end
+	end
+
+	if PQR_LoadLua(&amp;quot;PQR_Nova_Frame.lua&amp;quot;) == true then
+			if not mmC then
+			MiniMapCreation()
+			end
+			-- Slash Commands
+			SLASH_NOVAFRAME1 = &amp;quot;/novaframe&amp;quot;
+			SLASH_NOVAFRAME2 = &amp;quot;/nova&amp;quot;
+			function SlashCmdList.NOVAFRAME(msg, editbox)
+				if Setup == nil then
+					Setup = true
+					FrameCreation(Nova_ValueCheck, Nova_CooldownCheck, &amp;quot;Prot Warrior Options&amp;quot;, &amp;quot;Prot Cooldown Settings&amp;quot;)
+				end
+				if not Nova_Frame:IsShown() then Nova_Frame:Show() else Nova_Frame:Hide() end
+			end
+		end
+	
+	---Shoutouts
+	PQR_WriteToChat(&amp;quot;|cffC79C6EProtection Warrior:|cffFFBE69  Rotation Loaded Successfully&amp;quot;)
+	PQR_WriteToChat(&amp;quot;|cffFFBE69Special Thanks to My Donators and |cffFFFFFFOwnedCore.com&amp;quot;)
+end
+
+
+-----------------
+--Set Variables--
+-----------------
+
+---PQR Related
+	PQR_SpellAvailableTime	= Nova_SpellAvailableTime()
+	
+---Player Related
+	PlayerRage				= select(4, Nova_UnitInfo(&amp;quot;player&amp;quot;)) --actual
+	PlayerHP				= select(1, Nova_UnitInfo(&amp;quot;player&amp;quot;)) --percent
+	PlayerCombat			= UnitAffectingCombat(&amp;quot;player&amp;quot;)
+
+---Keyboard Related
+	lShift					= Nova_Pause(1)
+	lCtrl					= Nova_Pause(2)
+	lAlt					= Nova_Pause(3)
+	rShift					= Nova_Pause(4)
+	rCtrl					= Nova_Pause(5)
+	rAlt					= Nova_Pause(6)
+	
+--CVar Enabled Variables
+	BattleShoutEnabled		= GetCVarBool(&amp;quot;Nova_Use_Battle_Shout_Enabled&amp;quot;)
+	CommandShoutEnabled		= GetCVarBool(&amp;quot;Nova_Use_Commanding_Shout_Enabled&amp;quot;)
+	
+
+--CVar Cooldown Variables
+	nMod_Pause				= tonumber(GetCVar(&amp;quot;Nova_Pause_Rotation&amp;quot;))
+	nMod_Taunt				= tonumber(GetCVar(&amp;quot;Nova_Taunt/Heroic_Throw&amp;quot;))
+	nMod_Swall				= tonumber(GetCVar(&amp;quot;Nova_Shield_Wall&amp;quot;))
+	nMod_Droar				= tonumber(GetCVar(&amp;quot;Nova_Dragon_Roar&amp;quot;))
+	nMod_Hleap				= tonumber(GetCVar(&amp;quot;Nova_Heroic_Leap&amp;quot;))
+	
+--Set MiniMap to true
+	mmC = 1
+--End Code By Crystal_tech</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>--Routines</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>--------------------
+--Special Routines--
+--------------------
+if GetShapeshiftForm() ~= 2
+	and GetShapeshiftFormCooldown(2) == 0
+then
+	CastShapeshiftForm(2)
+end
+
+--Pause
+if Nova_Mod() == nMod_Pause
+	or IsMounted()
+	or UnitBuffID(&amp;quot;player&amp;quot;, 104235)
+	or UnitBuffID(&amp;quot;player&amp;quot;, 104262)
+	or SpellIsTargeting()
+	or UnitIsDeadOrGhost(&amp;quot;target&amp;quot;) 
+	or UnitIsDeadOrGhost(&amp;quot;player&amp;quot;)
+then
+	return true
+end
+
+---Healthstone
+if UnitExists(&amp;quot;target&amp;quot;) and UnitAffectingCombat(&amp;quot;player&amp;quot;) then
+	if PlayerHP &amp;lt; 40
+		and select(3,GetItemCooldown(5512)) == 1 then 
+			UseItemByName(5512)
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Last Stand</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_LastStand = PQ_LastStand
+
+if PlayerHP &amp;lt;= 30
+	and PQR_SpellAvailable(PQ_LastStand)
+	and PlayerCombat
+then
+	CastSpellByName(GetSpellInfo(PQ_LastStand))
+	return true
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Proc - Heroic Strike</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local TargetValidation, PQ_HeroicStrike, PQ_Ultimaum = TargetValidation, PQ_HeroicStrike, PQ_Ultimaum
+
+if PlayerCombat
+	and TargetValidation(&amp;quot;target&amp;quot;, PQ_HeroicStrike)
+	and UnitBuffID(&amp;quot;player&amp;quot;, PQ_Ultimaum)
+then
+	CastSpellByName(GetSpellInfo(PQ_HeroicStrike),&amp;quot;target&amp;quot;)
+	return true
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Berserker Rage</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_BerserkerRage, TargetValidation, PQ_HeroicStrike = PQ_BerserkerRage, TargetValidation, PQ_HeroicStrike
+
+if PlayerCombat
+	and PQR_SpellAvailable(PQ_BerserkerRage)
+	and not PQR_IsMoving(2)
+	and TargetValidation(&amp;quot;target&amp;quot;, PQ_HeroicStrike)
+then
+	CastSpellByName(GetSpellInfo(PQ_BerserkerRage))
+	return true
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>RG - Sheild Slam</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_ShieldSlam, TargetValidation = PQ_ShieldSlam, TargetValidation
+
+if TargetValidation(&amp;quot;target&amp;quot;, PQ_ShieldSlam)
+	and PlayerCombat
+	and PlayerRage &amp;lt; 95
+then
+	CastSpellByName(GetSpellInfo(PQ_ShieldSlam),&amp;quot;target&amp;quot;)
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>RG - Revenge</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_Revenge, TargetValidation = PQ_Revenge, TargetValidation
+
+if TargetValidation(&amp;quot;target&amp;quot;, PQ_Revenge)
+	and PlayerCombat
+	and PlayerRage &amp;lt; 105
+then
+	CastSpellByName(GetSpellInfo(PQ_Revenge),&amp;quot;target&amp;quot;)
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>RG - Shout</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_HeroicStrike, PQ_BattleShout, PQ_CommandingShout, TargetValidation = PQ_HeroicStrike, PQ_BattleShout, PQ_CommandingShout, TargetValidation
+
+if BattleShoutEnabled == 1 then
+	if TargetValidation(&amp;quot;target&amp;quot;, PQ_HeroicStrike)
+		and PlayerCombat
+		and PlayerRage &amp;lt; 100
+		and PQR_SpellAvailable(PQ_BattleShout)
+	then
+		CastSpellByName(GetSpellInfo(PQ_BattleShout), nil)
+		return true
+	end
+elseif CommandShoutEnabled == 1 then
+	if TargetValidation(&amp;quot;target&amp;quot;, PQ_HeroicStrike)
+		and PlayerCombat
+		and PlayerRage &amp;lt; 100
+		and PQR_SpellAvailable(PQ_CommandingShout)
+	then
+		CastSpellByName(GetSpellInfo(PQ_CommandingShout), nil)
+		return true
+	end
+else
+	return false
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>RS - Shield Block</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local sbbuff, TargetValidation, PQ_ShieldBlock, PQ_HeroicStrike, PQ_ShieldBarrier = UnitBuffID(&amp;quot;player&amp;quot;, 132404), TargetValidation, PQ_ShieldBlock, PQ_HeroicStrike, PQ_ShieldBarrier
+
+_shieldcast()
+
+if TargetValidation(&amp;quot;target&amp;quot;, PQ_HeroicStrike)
+	and PlayerCombat 
+then
+--	if not ssbuff
+--		and PlayerRage &amp;gt;= 20
+--		and PlayerHP &amp;lt; 80
+--	then
+--		CastSpellByName(GetSpellInfo(PQ_ShieldBarrier), nil)
+--		return true
+--	end
+--	
+--	if not sbbuff 
+--		and PlayerRage &amp;gt; 60
+--	then
+--		CastSpellByName(GetSpellInfo(PQ_ShieldBlock), nil)
+--		return true
+--	end
+
+	if _shieldcast() == 2565 then
+		CastSpellByName(GetSpellInfo(PQ_ShieldBlock), nil)
+		return true
+	elseif _shieldcast() == 112048 then
+		CastSpellByName(GetSpellInfo(PQ_ShieldBarrier), nil)
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Thunder Clap</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_ThunderClap, PQ_hStrike = PQ_ThunderClap, PQ_hStrike
+
+if PQR_SpellAvailable(PQ_ThunderClap)
+	and PlayerCombat
+	and not UnitIsDeadOrGhost(&amp;quot;target&amp;quot;)
+	and IsSpellInRange(GetSpellInfo(PQ_HeroicStrike),&amp;quot;target&amp;quot;) == 1
+	and not UnitDebuffID(&amp;quot;target&amp;quot;, 115798, &amp;quot;PLAYER&amp;quot;)
+then
+	CastSpellByName(GetSpellInfo(PQ_ThunderClap),&amp;quot;target&amp;quot;)
+	return true
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Demoralizing Shout</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_DemoralizingShout  = PQ_DemoralizingShout
+
+if PlayerCombat
+	and PQR_SpellAvailable(PQ_DemoralizingShout)
+then
+	CastSpellByName(GetSpellInfo(PQ_DemoralizingShout), nil)
+	return true
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Talent - Impending Victory</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local TargetValidation, PQ_ImpendingVictory = TargetValidation, PQ_ImpendingVictory
+
+if --TargetValidation(&amp;quot;target&amp;quot;, PQ_ImpendingVictory)
+ PlayerCombat
+	and PlayerHP &amp;lt; 85
+	and PlayerRage &amp;gt; 10
+	and PQR_SpellAvailable(PQ_ImpendingVictory)
+then
+	CastSpellByName(GetSpellInfo(PQ_ImpendingVictory),&amp;quot;target&amp;quot;)
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>RG - Devastate</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PlayerCombat then
+	CastSpellByName(GetSpellInfo(PQ_Devastate),&amp;quot;target&amp;quot;)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Taunt/Throw</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_Taunt, PQ_HeroicThrow = PQ_Taunt, PQ_HeroicThrow
+
+if Nova_Mod() == nMod_Taunt
+	and UnitExists(&amp;quot;mouseover&amp;quot;)
+then
+	if PQR_SpellAvailable(PQ_Taunt) then
+		CastSpellByName(GetSpellInfo(PQ_Taunt), &amp;quot;mouseover&amp;quot;)
+		return true
+	elseif not PQR_SpellAvailable(PQ_Taunt) then
+		CastSpellByName(GetSpellInfo(PQ_HeroicThrow), &amp;quot;mouseover&amp;quot;)
+		return true
+	end
+end</Lua><RecastDelay>1000</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Recklessness</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_Recklessness = PQ_Recklessness
+
+if PlayerCombat
+	and SpecialUnit()
+	and PQR_SpellAvailable(PQ_Recklessness)
+then
+	CastSpellByName(GetSpellInfo(PQ_Recklessness))
+	return true
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Shield Wall</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_ShieldWall = PQ_ShieldWall
+
+if Nova_Mod() == nMod_Swall then
+	if PQR_SpellAvailable(PQ_ShieldWall) then
+		CastSpellByName(GetSpellInfo(PQ_ShieldWall))
+		return true
+	end
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Talent - Dragon Roar</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local PQ_DragonRoar, PQ_HeroicStrike = PQ_DragonRoar, PQ_HeroicStrike
+
+if Nova_Mod() == nMod_Droar
+	or SpecialUnit()
+then
+	if PlayerCombat
+		and PQR_SpellAvailable(PQ_DragonRoar)
+		and IsSpellInRange(GetSpellInfo(PQ_HeroicStrike),&amp;quot;target&amp;quot;) == 1
+	then
+		CastSpellByName(GetSpellInfo(PQ_DragonRoar))
+		return true
+	end
+end</Lua><RecastDelay>300</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Heroic Leap</Name><Default>false</Default><SpellID>0</SpellID><Actions>/cast [@mouseover] Charge</Actions><Lua>local PQ_HeroicLeap = PQ_HeroicLeap
+
+if Nova_Mod() == nMod_Hleap then
+	CastSpellByName(GetSpellInfo(PQ_HeroicLeap))
+	if SpellIsTargeting() then CameraOrSelectOrMoveStart() CameraOrSelectOrMoveStop() end
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Rallying Cry</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>CD - Disrupting Shout</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></WARRIOR>

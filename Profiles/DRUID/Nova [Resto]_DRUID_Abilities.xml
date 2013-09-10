@@ -1,0 +1,888 @@
+<?xml version="1.0" encoding="utf-8" ?><DRUID><Ability><Name>-- Init --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PQR_RotationStarted == true then
+	-- Should be reloaded every time you reload Profile (No more needing to /rl)
+	PQR_RotationStarted = false
+
+--PQR_WriteToChat(&amp;quot;|cff0088FFHoly Paladin Profile Version - |cff33CC002.0&amp;quot;)
+PQR_Event(&amp;quot;PQR_Text&amp;quot;, &amp;quot;Druid Profile Verions - 0.2&amp;quot;, nil, &amp;quot;00FF00&amp;quot;)
+PQR_SwapCheckTimer = 0
+PQR_SwapCheck = false
+
+
+  -- Checking if there&amp;apos;s a dangerous Debuff we shouldn&amp;apos;t Cleanse  
+  function DontDispel(t)
+      local buff  = { 30108, 34914 }
+      local DontDispelCheck = false
+      for i=1, #buff do
+      	if UnitDebuffID(t, buff[i]) then
+			if select(11, UnitDebuff(t, GetSpellInfo(buff[i]))) == 30108 then
+		    	if UnitDebuffID(t, 31117) then
+		    		if select(11, UnitDebuff(t, GetSpellInfo(31117))) == 31117 then
+		    				DontDispelCheck = false
+		    				break
+		    		end
+		    	else
+		    	 		DontDispelCheck = true
+		    	end
+		     	DontDispelCheck = true
+		    end
+		end
+	  end
+	  return DontDispelCheck
+  end
+
+  -- Checking if there&amp;apos;s a Dangerous Debuff we need to cleanse Immediately
+  function DangerousMagic(t)
+    local buff = { 118 }
+    for _,v in ipairs(buff) do if UnitDebuffID(t,v) then return true end end
+  end
+  
+  -- Checks if our Cleanse will have a valid Debuff to Cleanse
+  function ValidDispel(t)
+  	local HasValidDispel = false
+  	local i = 1
+  	local debuff = UnitDebuff(t, i)
+  	while debuff do
+  		local debuffType = select(5, UnitDebuff(t, i))
+  		if debuffType == &amp;quot;Magic&amp;quot; or debuffType == &amp;quot;Poison&amp;quot; or debuffType == &amp;quot;Curse&amp;quot; then
+  			HasValidDispel = true
+  		end
+  		i = i + 1
+  		debuff = UnitDebuff(t, i)
+  	end
+  	return HasValidDispel
+  end
+
+
+	-- Average Health of Players
+	function AverageHealth(n) -- N = Size of the range of people we are checking
+		local NumberOfPeople = n
+		local Nova_Average = 0
+		if #members &amp;lt; NumberOfPeople then
+			for i=NumberOfPeople, 0, -1 do
+				if #members &amp;gt;= i then
+					NumberOfPeople = i
+					break
+				end
+			end
+		end
+		
+		for i=1, NumberOfPeople do
+			Nova_Average = Nova_Average + members[i].HP 
+		end
+		
+		Nova_Average = Nova_Average / NumberOfPeople
+		
+		return Nova_Average, NumberOfPeople
+	end
+
+if GetCVar(&amp;quot;PQ_WipeCustomTable&amp;quot;) == nil then RegisterCVar(&amp;quot;PQ_WipeCustomTable&amp;quot;, 0) end
+if GetCVar(&amp;quot;Nova_OverRide&amp;quot;) == nil then RegisterCVar(&amp;quot;Nova_OverRide&amp;quot;, 0) end
+if GetCVar(&amp;quot;PQ_UseCustomT&amp;quot;) == nil then RegisterCVar(&amp;quot;PQ_UseCustomT&amp;quot;, 0) end
+if GetCVar(&amp;quot;Nova_Recording&amp;quot;) == nil then RegisterCVar(&amp;quot;Nova_Recording&amp;quot;, 0) end
+if GetCVar(&amp;quot;Nova_DisableCD&amp;quot;) == nil then RegisterCVar(&amp;quot;Nova_DisableCD&amp;quot;, 1) end
+if GetCVar(&amp;quot;Nova_Mouseover&amp;quot;) == nil then RegisterCVar(&amp;quot;Nova_Mouseover&amp;quot;, 0) end
+if GetCVar(&amp;quot;Nova_LowHP&amp;quot;) == nil then RegisterCVar(&amp;quot;Nova_LowHP&amp;quot;, 80) end
+if GetCVar(&amp;quot;Nova_ActualHP&amp;quot;) == nil then RegisterCVar(&amp;quot;Nova_ActualHP&amp;quot;, 0) end
+
+
+-------------------
+-- PQI Setup
+-------------------
+
+if not PQI_Setup_Healing then
+	PQI_Healing_Druid = {
+		name = &amp;apos;Resto Healing&amp;apos;,
+		author = &amp;apos;Nova&amp;apos;,
+		abilities = {
+			{name = &amp;apos;Rejuvenation&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 80,
+				step = 1,
+				},
+			},			
+			{name = &amp;apos;Wild Growth&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 88,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Healing Touch&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 50,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Innervate&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 80,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Natures Vigil&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 70,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Natures Swiftness&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 60,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Swiftmend&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 75,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Regrowth&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 70,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Genesis&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 70,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;NaturesCure&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 50,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Healing Touch CC&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 70,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Regrowth CC&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 80,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Nourish&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 60,
+				step = 1,
+				},
+			}
+		},
+		hotkeys = {
+			{name = &amp;apos;Tranquility&amp;apos;,
+			enable = true,
+			hotkeys = {&amp;apos;ls&amp;apos;},
+			},
+			{name = &amp;apos;Incarnation&amp;apos;,
+			enable = true,
+			hotkeys = {&amp;apos;lc&amp;apos;},
+			},
+			{name = &amp;apos;Pause&amp;apos;,
+			enable = true,
+			hotkeys = {&amp;apos;la&amp;apos;},
+			},
+			{name = &amp;apos;Lifebloom Selector&amp;apos;,
+			enable = true,
+			hotkeys = {&amp;apos;rs&amp;apos;},
+			},
+			{name = &amp;apos;Remove From Custom Table&amp;apos;,
+			enable = true,
+			hotkeys = {&amp;apos;rc&amp;apos;},
+			},
+			{name = &amp;apos;Add To Custom Table&amp;apos;,
+			enable = true,
+			hotkeys = {&amp;apos;ra&amp;apos;},
+			},
+			{name = &amp;apos;Add Or Remove Blacklist&amp;apos;,
+			enable = false,
+			hotkeys = { &amp;apos;ra&amp;apos;, &amp;apos;rc&amp;apos; },
+			},
+			{name = &amp;apos;Pause Toggle&amp;apos;,
+			enable = true,
+			hotkeys = { &amp;apos;ra&amp;apos;, &amp;apos;rs&amp;apos; },
+			},
+		}
+	}
+
+	PQI_Setup_Healing = PQI:AddRotation(PQI_Healing_Druid)
+	pqiTimer = GetTime()
+end
+
+
+function PQI_Setup_Variables(tableName, Prefix) -- Name of the PQI Table, [Prefix you want to affix to Variable (Nova is default if left blank)]
+	local tableName = tableName
+	local Prefix = Prefix or &amp;quot;Nova&amp;quot;
+	if type(Prefix) ~= &amp;quot;string&amp;quot; then
+		Prefix = &amp;quot;Nova&amp;quot;
+	end
+	local PQI_String = string.format(&amp;quot;%s_%s%s&amp;quot;, &amp;quot;PQI&amp;quot;, gsub(tableName.author, &amp;quot;%s&amp;quot;, &amp;quot;&amp;quot;), gsub(tableName.name, &amp;quot;%s&amp;quot;, &amp;quot;&amp;quot;))
+	if type(tableName.abilities) == &amp;quot;table&amp;quot; then
+		for i=1, #tableName.abilities do
+			local AbilitiesName = gsub(tableName.abilities[i].name, &amp;apos;%s&amp;apos;, &amp;apos;&amp;apos;)
+			local Variable = string.format(&amp;apos;%s_%s&amp;apos;, Prefix, AbilitiesName)
+			local PQI_String_Enable = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, AbilitiesName, &amp;quot;enable&amp;quot;)
+			local PQI_String_Value = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, AbilitiesName, &amp;quot;value&amp;quot;)
+			
+			if _G[PQI_String_Value] then -- This is to verify that PQI is fully loaded before trying to make the Variables
+				_G[Variable..&amp;apos;_Check&amp;apos;] = _G[tostring(PQI_String_Enable)] -- Output = Prefix_AbilityName_Check
+				_G[Variable] = _G[tostring(PQI_String_Value)] -- Output = Prefix_AbilityName
+			else
+				return false
+			end
+		end
+	end
+	if type(tableName.hotkeys) == &amp;quot;table&amp;quot; then
+		for h=1, #tableName.hotkeys do
+			local HotkeyName = gsub(tableName.hotkeys[h].name, &amp;apos;%s&amp;apos;, &amp;apos;&amp;apos;)
+			local Variable = string.format(&amp;apos;%s_%s%s&amp;apos;, Prefix, &amp;quot;Mod&amp;quot;, HotkeyName)
+			local PQI_String_Enable = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, HotkeyName, &amp;quot;enable&amp;quot;)
+			local PQI_String_Key = string.format(&amp;apos;%s_%s_%s&amp;apos;, PQI_String, HotkeyName, &amp;quot;key&amp;quot;)
+			
+			if _G[PQI_String_Key] then
+				_G[Variable..&amp;apos;_Check&amp;apos;] = _G[tostring(PQI_String_Enable)] -- Output = Prefix_ModAbilityName_Check
+				_G[Variable] = PQI:IsHotkeys(_G[PQI_String_Key]) -- Output = Prefix_ModAbilityName_Key
+			else
+				return false
+			end
+		end
+	end
+
+	return true
+end
+
+
+--------------------
+-- Slash Commands
+--------------------
+SLASH_WIPETABLE1 = &amp;quot;/wipetable&amp;quot;
+SLASH_WIPETABLE2 = &amp;quot;/wipecustomtable&amp;quot;
+SLASH_WIPETABLE3 = &amp;quot;/wt&amp;quot;
+function SlashCmdList.WIPETABLE(msg, editbox)
+	Nova_CustomT = { }
+	if GetCVarBool(&amp;quot;PQ_UseCustomT&amp;quot;) then 
+		SetCVar(&amp;quot;PQ_UseCustomT&amp;quot;, 0)
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Wiped Custom Table clean, and reverting to Normal Table.&amp;quot;)
+		end
+	else
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Wiped Custom Table clean.&amp;quot;)
+		end
+	end
+end
+
+SLASH_USECUSTOMT1 = &amp;quot;/usecustomt&amp;quot;
+SLASH_USECUSTOMT2 = &amp;quot;/uct&amp;quot;
+SLASH_USECUSTOMT3 = &amp;quot;/usecustomtable&amp;quot;
+function SlashCmdList.USECUSTOMT(msg, editbox)
+	if not GetCVarBool(&amp;quot;PQ_UseCustomT&amp;quot;) and #Nova_CustomT &amp;gt; 0 then
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Enabling Custom Table&amp;quot;)
+		end
+		SetCVar(&amp;quot;PQ_UseCustomT&amp;quot;, 1)
+	else
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Enabling Normal Table&amp;quot;)
+		end
+		SetCVar(&amp;quot;PQ_UseCustomT&amp;quot;, 0)
+	end
+end
+
+SLASH_RECORDING1 = &amp;quot;/recording&amp;quot;
+SLASH_RECORDING2 = &amp;quot;/recraid&amp;quot;
+SLASH_RECORDING3 = &amp;quot;/recordingraid&amp;quot;
+function SlashCmdList.RECORDING(msg, editbox)
+	if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+		SetCVar(&amp;quot;Nova_Recording&amp;quot;, 1)
+		for i=1, 20 do ChatFrame1:AddMessage(&amp;quot; &amp;quot;) end
+	else
+		PQR_WriteToChat(&amp;quot;Silent Mode Disabled&amp;quot;)
+		SetCVar(&amp;quot;Nova_Recording&amp;quot;, 0)
+	end
+end
+
+SLASH_DISABLECD1 = &amp;quot;/disablecd&amp;quot;
+function SlashCmdList.DISABLECD(msg, editbox)
+	if not GetCVarBool(&amp;quot;Nova_DisableCD&amp;quot;) then
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Disabling your Automatic Cooldown Usage&amp;quot;)
+		end
+		SetCVar(&amp;quot;Nova_DisableCD&amp;quot;, 1)
+	else
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Enabling your Automatic Cooldown Usage&amp;quot;)
+		end
+		SetCVar(&amp;quot;Nova_DisableCD&amp;quot;, 0)
+	end
+end
+
+SLASH_CLEARCHAT1 = &amp;quot;/clearchat&amp;quot;
+function SlashCmdList.CLEARCHAT(msg, editbox)
+	for i=1, 20 do
+		ChatFrame1:AddMessage(&amp;quot; &amp;quot;)
+	end
+end
+
+
+SLASH_DISABLECLEANSE1 = &amp;quot;/disablecleanse&amp;quot;
+function SlashCmdList.DISABLECLEANSE(msg, editbox)
+	if not GetCVarBool(&amp;quot;Nova_DisableCleanse&amp;quot;) then
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Disabled Cleanse.&amp;quot;)
+		end
+		SetCVar(&amp;quot;Nova_DisableCleanse&amp;quot;, 1)
+	else
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Enabled Cleanse.&amp;quot;)
+		end
+		SetCVar(&amp;quot;Nova_DisableCleanse&amp;quot;, 0)
+	end		
+end
+
+SLASH_DISABLEMOUSEOVER1 = &amp;quot;/mouseoverheal&amp;quot;
+SLASH_DISABLEMOUSEOVER2 = &amp;quot;/mh&amp;quot;
+function SlashCmdList.DISABLEMOUSEOVER(msg, editbox)
+	if not GetCVarBool(&amp;quot;Nova_Mouseover&amp;quot;) then
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Disabled Mouseover.&amp;quot;)
+		end
+		SetCVar(&amp;quot;Nova_Mouseover&amp;quot;, 1)
+	else
+		if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+			PQR_WriteToChat(&amp;quot;Enabled Mouseover.&amp;quot;)
+		end
+		SetCVar(&amp;quot;Nova_Mouseover&amp;quot;, 0)
+	end		
+end
+
+-- Variables
+PQR_ResetMovementTime = 0.3
+PQR_SpellAvailableTime = ((select(3,GetNetStats()) + select(4,GetNetStats())) / 1000)
+PQR_AddToSpellDelayList(18562, 0, 1) -- Swiftmend
+
+-----------------------------
+-- Create the CVar Macros
+-----------------------------
+
+	if PQR_LoadLua ~= nil then
+		-- Load Data File
+		if PQR_LoadLua(&amp;quot;PQR_Nova_Data.lua&amp;quot;) == false then
+			PQR_WriteToChat(&amp;quot;You are missing PQR_Nova_Data.lua. Rotation has been stopped.&amp;quot;, &amp;quot;Error&amp;quot;)
+			PQR_StopRotation()
+			return true
+		end
+	
+		if not PQR_LoadLua(&amp;quot;PQR_PQI.lua&amp;quot;) then
+			print(&amp;quot;Missing the PQI Data File!!! Rotation has Stopping&amp;quot;, &amp;quot;Error&amp;quot;)
+			PQR_StopRotation()
+			return true
+		end
+	end
+	
+	PQR_Spec = GetSpecialization()
+	if PQR_Spec ~= 4 then
+		PQR_WriteToChat(&amp;quot;You must be in Resto Spec. Please switch then try again.&amp;quot;, &amp;quot;Warning&amp;quot;)
+		PQR_StopRotation()
+		return true
+	end
+end
+
+SheuronEngine(Nova_Mouseover, Nova_LowHP, Nova_ActulHP)  -- Deactivate Mouseover  ||   At what % Health do we consider someone LowHP  ||  Sort by Actual Health = true
+
+--[[TableCompilation = { members, Nova_CustomT, Nova_Tanks } -- Visual Healing Table Currently disabled
+
+if not _G[&amp;apos;FrameSetup&amp;apos;] then
+	VisualTableFrameSetup(TableCompilation)
+	VHT_Timer = 0
+-- Setup the Slash Commands for the Frame
+	SLASH_VHTFRAME1 = &amp;quot;/visualhealing&amp;quot;
+	SLASH_VHTFRAME2 = &amp;quot;/vht&amp;quot;
+	function SlashCmdList.VHTFRAME(msg, editbox)
+		local VHT = _G[&amp;apos;VisualHealingTableTitle&amp;apos;]
+		if not VHT:IsShown() then
+			VHT:Show()
+		else
+			VHT:Hide()
+		end
+	end
+end
+
+if GetTime() - _G[&amp;apos;VHT_Timer&amp;apos;] &amp;gt;= 0.5 and _G[&amp;apos;VisualHealingTableTitle&amp;apos;]:IsVisible() then
+	UpdateFontStrings(TableCompilation)
+end]]--
+
+if not PQI_Setup_Variables(PQI_Healing_Druid, &amp;quot;Nova&amp;quot;) 
+ or (Nova_ModPause
+ and Nova_ModPause_Check)
+ or UnitIsDeadOrGhost(&amp;quot;player&amp;quot;) 
+ or IsMounted() then
+ 	return true
+elseif GetShapeshiftForm() &amp;gt; 0 then
+	if select(2, GetShapeshiftFormInfo(GetShapeshiftForm())) == GetSpellInfo(40120) then 
+ 		return true
+ 	end 
+end
+
+if GetTime() - PQR_SwapCheckTimer &amp;gt; 1 then
+	if Nova_ModPauseToggle_Check then
+		if Nova_ModPauseToggle then
+			if PQR_SwapCheck then
+				PQR_SwapCheck = false
+			else
+				PQR_SwapCheck = true
+			end
+		end
+	end
+end
+
+if PQR_SwapCheck then
+	return true
+end
+
+if UnitBuffID(&amp;quot;player&amp;quot;, 132158) then
+	Nova_Moving = false
+elseif PQR_IsMoving() then
+	Nova_Moving = true
+else
+	Nova_Moving = false
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Custom Table --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>--------------------------------------
+-- Adding Players to Custom Table
+--------------------------------------
+if Nova_ModAddToCustomTable
+ and Nova_ModAddToCustomTable_Check
+ and UnitExists(&amp;quot;mouseover&amp;quot;)
+ and ( CanHeal(&amp;quot;mouseover&amp;quot;) 
+  or UnitIsUnit(&amp;quot;player&amp;quot;, &amp;quot;mouseover&amp;quot;) ) then
+	for i=1, #Nova_CustomT do
+		if Nova_CustomT[i].GUID and Nova_CustomT[i].GUID == UnitGUID(&amp;quot;mouseover&amp;quot;) then
+			return false
+		end
+	end
+	
+	table.insert(Nova_CustomT, { GUID = UnitGUID(&amp;quot;mouseover&amp;quot;) } )
+	
+	if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+		PQR_WriteToChat(&amp;quot;We just added &amp;quot;..UnitName(&amp;quot;mouseover&amp;quot;)..&amp;quot; to the Custom Healing Table.&amp;quot;, &amp;quot;Alert&amp;quot;)
+	end
+	return true
+
+end
+
+
+--------------------------------------
+-- Removing Players from Custom Table
+--------------------------------------
+
+if Nova_ModRemoveFromCustomTable
+ and Nova_ModRemoveFromCustomTable_Check
+ and UnitExists(&amp;quot;mouseover&amp;quot;)
+ and ( CanHeal(&amp;quot;mouseover&amp;quot;) 
+  or UnitIsUnit(&amp;quot;player&amp;quot;, &amp;quot;mouseover&amp;quot;) )then
+	for i=1, #Nova_CustomT do
+		if Nova_CustomT[i].GUID and Nova_CustomT[i].GUID == UnitGUID(&amp;quot;mouseover&amp;quot;) then
+			if not GetCVarBool(&amp;quot;Nova_Recording&amp;quot;) then
+				PQR_WriteToChat(&amp;quot;We just removed &amp;quot;..UnitName(Nova_CustomT[i].Unit)..&amp;quot; from the Custom Healing Table.&amp;quot;, &amp;quot;Alert&amp;quot;)
+			end
+			table.remove(Nova_CustomT, i)
+			return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Healing Engine --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if GetCVarBool(&amp;quot;PQ_UseCustomT&amp;quot;) then
+	members = Nova_CustomT
+	lowhpmembers = 0
+	for i=1, #Nova_CustomT do
+		if Nova_CustomT[i].HP &amp;lt; 80 then
+			lowhpmembers = lowhpmembers + 1
+		end
+	end
+	
+	table.sort(members, function(x,y) return x.HP &amp;lt; y.HP end)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Rejuvenation</Name><Default>false</Default><SpellID>774</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(774)  
+ and Nova_Rejuvenation_Check then
+	if #Nova_Tanks &amp;gt; 0 then
+		for y=1, #Nova_Tanks do
+			if not UnitBuffID(Nova_Tanks[y].Unit, 774, &amp;quot;PLAYER&amp;quot;)
+			 and Nova_Tanks[y].HP &amp;lt; 90 then
+			 	PQR_CustomTarget = Nova_Tanks[y].Unit
+			 	return true
+			end
+		end
+	end
+	for i=1, #members do
+		if not UnitBuffID(members[i].Unit, 774)
+		 and members[i].HP &amp;lt; Nova_Rejuvenation then
+		 	PQR_CustomTarget = members[i].Unit
+		 	return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Lifebloom</Name><Default>false</Default><SpellID>33763</SpellID><Actions></Actions><Lua>local members = members
+
+if init == nil then
+	init = true
+	local LifeBloom = nil
+end
+
+if UnitExists(&amp;quot;focus&amp;quot;)
+ and CanHeal(&amp;quot;focus&amp;quot;) then
+ 	LifeBloom = UnitGUID(&amp;quot;focus&amp;quot;)
+elseif Nova_ModLifebloomSelector then
+	if CanHeal(&amp;quot;mouseover&amp;quot;) 
+	 or UnitIsUnit(&amp;quot;player&amp;quot;, &amp;quot;mouseover&amp;quot;) then
+		LifeBloom = UnitGUID(&amp;quot;mouseover&amp;quot;)
+		PQR_CustomTarget = &amp;quot;mouseover&amp;quot;
+		return true
+	end
+end
+
+if LifeBloom and ( UnitAffectingCombat(&amp;quot;player&amp;quot;) or UnitAffectingCombat(members[1].Unit) ) then
+	for i=1, #members do
+		if LifeBloom == members[i].GUID then
+			if UnitBuffID(members[i].Unit, 33763) then
+				if select(7, UnitBuffID(members[i].Unit, 33763)) - GetTime() &amp;lt;= 3 
+				 or select(4, UnitBuffID(members[i].Unit, 33763)) &amp;lt; 3 then
+					PQR_CustomTarget = members[i].Unit
+					return true
+				end
+			else
+				PQR_CustomTarget = members[i].Unit
+				return true
+			end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Regrowth</Name><Default>false</Default><SpellID>8936</SpellID><Actions></Actions><Lua>--Need to reword this one completely.
+
+if PQR_SpellAvailable(8936) 
+ and ( not Nova_Moving 
+  or UnitBuffID(&amp;quot;player&amp;quot;, 117679) )  
+ and Nova_Regrowth_Check then
+	if not UnitBuffID(members[1].Unit, 8936)
+	 and members[1].HP &amp;lt; Nova_Regrowth 
+	 and (  UnitBuffID(&amp;quot;player&amp;quot;, 132158) ) then
+	 	PQR_CustomTarget = members[1].Unit
+	 	return true
+	else
+		if UnitBuffID(&amp;quot;player&amp;quot;, 16870) 
+		 and members[1].HP &amp;lt; Nova_RegrowthCC then
+		 	PQR_CustomTarget = members[1].Unit
+		 	return true
+		end
+	end
+end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Nourish</Name><Default>false</Default><SpellID>50464</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(50464)
+ and not Nova_Moving  
+ and Nova_Nourish_Check then
+	if members[1].HP &amp;lt; Nova_Nourish then
+		if UnitBuffID(members[1].Unit, 774)
+		 or UnitBuffID(members[1].Unit, 8936) 
+		 or UnitBuffID(members[1].Unit, 48438)
+		 or UnitBuffID(members[1].Unit, 33763) then
+		 	PQR_CustomTarget = members[1].Unit
+		 	return true
+		end
+	end
+	
+	if not UnitBuffID(&amp;quot;player&amp;quot;, 100977) 
+	 and UnitAffectingCombat(&amp;quot;player&amp;quot;) 
+	 and Nova_CheckLastCast(50464, 2.5) then
+		PQR_CustomTarget = members[1].Unit
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Healing Touch</Name><Default>false</Default><SpellID>5185</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(5185) 
+ and not Nova_Moving  
+ and Nova_HealingTouch_Check then
+	if UnitBuffID(&amp;apos;player&amp;apos;, 16870)
+	 and members[1].HP &amp;lt; Nova_HealingTouchCC then
+	 	PQR_CustomTarget = members[1].Unit
+	 	return true
+	elseif members[1].HP &amp;lt; Nova_HealingTouch then
+	 	PQR_CustomTarget = members[1].Unit
+	 	return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Wild Growth</Name><Default>false</Default><SpellID>48438</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(48438)  
+ and Nova_WildGrowth_Check then
+	GetDistance()
+	local PerfectAoETarget = {}
+	for i=1, #members do
+		table.insert(PerfectAoETarget, {NumberNearby = UnitsClose(members[i].Unit, Nova_WildGrowth), Unit = members[i].Unit} )
+	end
+	
+	table.sort(PerfectAoETarget, function(x,y) return x.NumberNearby &amp;gt; y.NumberNearby end)
+	
+	if PerfectAoETarget[1].NumberNearby &amp;gt;= 2
+	 or AverageHealth(3) &amp;lt;= Nova_WildGrowth then
+		PQR_CustomTarget = PerfectAoETarget[1].Unit
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Swiftmend</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if GetSpellCooldown(18562) == 0  
+ and Nova_Swiftmend_Check then
+	GetDistance()
+	local members = members
+	
+	local PerfectAoETarget = {}
+	for i=1, #members do
+		if UnitBuffID(members[i].Unit, 774) or UnitBuffID(members[i].Unit, 8936) then
+			table.insert(PerfectAoETarget, {NumberNearby = UnitsClose(members[i].Unit, 85), Unit = members[i].Unit, HP = members[i].HP} )
+		end
+	end
+
+	
+	if #PerfectAoETarget &amp;gt; 0 then
+		table.sort(PerfectAoETarget, function(x,y) return x.NumberNearby &amp;gt; y.NumberNearby end)
+		
+		if PerfectAoETarget[1].NumberNearby &amp;gt;= 3 then
+			 CastSpellByName(GetSpellInfo(18562), PerfectAoETarget[1].Unit)
+			 return true
+		end
+	end
+
+	
+	if ( UnitBuffID(members[1].Unit, 774)
+	 or UnitBuffID(members[1].Unit, 8936) ) then
+	 	if members[1].HP &amp;lt;= Nova_Swiftmend then
+	 		CastSpellByName(GetSpellInfo(18562), members[1].Unit)
+	 		return true
+	 	end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Natures Swiftness</Name><Default>false</Default><SpellID>132158</SpellID><Actions></Actions><Lua>-- Nature&amp;apos;s Swiftness
+if PQR_SpellAvailable(132158)  
+ and Nova_NaturesSwiftness_Check then
+	if members[1].HP &amp;lt; Nova_NaturesSwiftness then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Natures Cure</Name><Default>false</Default><SpellID>88423</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(88423) 
+ and Nova_NaturesCure_Check then
+	if members[1].HP &amp;gt; Nova_NaturesCure then
+		for i=1, #members do
+			if ValidDispel(members[i].Unit) then
+			 	PQR_CustomTarget = members[i].Unit
+			 	return true
+			end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Innervate</Name><Default>false</Default><SpellID>29166</SpellID><Actions></Actions><Lua>if UnitAffectingCombat(&amp;quot;player&amp;quot;)
+ and select(3, Nova_UnitInfo(&amp;quot;player&amp;quot;)) &amp;lt;= Nova_Innervate  
+ and Nova_Innervate_Check then
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Inc: Swiftmend</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if UnitBuffID(&amp;quot;player&amp;quot;, 33891)  
+ and Nova_Swiftmend_Check then
+	if GetSpellCooldown(18562) == 0 then
+		GetDistance()
+		local members = members
+		
+		local PerfectAoETarget = {}
+		for i=1, #members do
+			if UnitBuffID(members[i].Unit, 774) or UnitBuffID(members[i].Unit, 8936) then
+				table.insert(PerfectAoETarget, {NumberNearby = UnitsClose(members[i].Unit, 85), Unit = members[i].Unit, HP = members[i].HP} )
+			end
+		end
+	
+		
+		if #PerfectAoETarget &amp;gt; 0 then
+			table.sort(PerfectAoETarget, function(x,y) return x.NumberNearby &amp;gt; y.NumberNearby end)
+			
+			if PerfectAoETarget[1].NumberNearby &amp;gt;= 3 then
+				 CastSpellByName(GetSpellInfo(18562), PerfectAoETarget[1].Unit)
+				 return true
+			end
+		end
+	
+		
+		if ( UnitBuffID(members[1].Unit, 774)
+		 or UnitBuffID(members[1].Unit, 8936) ) then
+		 	if members[1].HP &amp;lt;= Nova_Swiftmend then
+		 		CastSpellByName(GetSpellInfo(18562), members[1].Unit)
+		 		return true
+		 	end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Ironbark</Name><Default>false</Default><SpellID>102342</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(102342) 
+ and Nova_Ironbark_Check then 
+	if #Nova_Tanks &amp;gt; 0 then
+		for i=1, #Nova_Tanks do
+			if UnitThreatSituation(Nova_Tanks[i].Unit) then
+				if Nova_Tanks[i].HP &amp;lt; Nova_Ironbark then
+					PQR_CustomTarget = Nova_Tanks[i].Unit
+					return true
+				end
+			end
+		end
+	elseif UnitThreatSituation(members[1].Unit)
+	 and members[1].HP &amp;lt; Nova_Ironbark then
+	 	PQR_CustomTarget = members[1].Unit
+	 	return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Tranquility</Name><Default>false</Default><SpellID>740</SpellID><Actions></Actions><Lua>if Nova_ModTranquility
+ and Nova_ModTranquility_Check
+ and UnitAffectingCombat(&amp;quot;player&amp;quot;) then
+ 	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Natures Vigil</Name><Default>false</Default><SpellID>124974</SpellID><Actions></Actions><Lua>if members[1].HP &amp;lt; 50
+ and AverageHealth(3) &amp;lt; Nova_NaturesVigil  
+ and Nova_NaturesVigil_Check then
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Master File --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>-- Only takes effect when we&amp;apos;re 90
+if UnitLevel(&amp;quot;player&amp;quot;) == 90
+ and not UnitIsDeadOrGhost(&amp;quot;player&amp;quot;)
+ and Nova_CheckLastCast(6, 2) then
+	-- If we are in a 5 man instance
+	if IsInInstance() and select(2, GetInstanceInfo()) == &amp;quot;party&amp;quot; then
+		FirstRun = false
+		PQR_SwapRotation(&amp;quot;Party (Nova [Resto])&amp;quot;)
+	-- If we are in a raid of any size
+	elseif IsInInstance() and select(2, GetInstanceInfo()) == &amp;quot;raid&amp;quot; then
+		FirstRun = false
+		PQR_SwapRotation(&amp;quot;Raid (Nova [Resto])&amp;quot;)
+	-- If we are in a Battleground
+	elseif IsInInstance() and select(2, GetInstanceInfo()) == &amp;quot;pvp&amp;quot; and not IsActiveBattlefieldArena() and not IsRatedBattleground() then
+		FirstRun = false
+		PQR_SwapRotation(&amp;quot;BG (Nova [Resto])&amp;quot;)
+	-- If we are in an Arena Battle
+	elseif IsInInstance() and ( IsActiveBattlefieldArena() or IsRatedBattleground()) then
+		FirstRun = false
+		PQR_SwapRotation(&amp;quot;Arena (Nova [Resto])&amp;quot;)
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Party File --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if (not IsInInstance() or select(2, GetInstanceInfo()) ~= &amp;quot;party&amp;quot;) and not UnitIsDeadOrGhost(&amp;quot;player&amp;quot;) then
+	PQR_SwapRotation(&amp;quot;Master (Nova [Resto])&amp;quot;)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Arena File --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if not IsInInstance() and select(2, GetInstanceInfo()) ~= &amp;quot;pvp&amp;quot; and not UnitIsDeadOrGhost(&amp;quot;player&amp;quot;) then
+	PQR_SwapRotation(&amp;quot;Master (Nova [Resto])&amp;quot;)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Raid File --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if (not IsInInstance() or select(2, GetInstanceInfo()) ~= &amp;quot;raid&amp;quot;) and not UnitIsDeadOrGhost(&amp;quot;player&amp;quot;) then
+	PQR_SwapRotation(&amp;quot;Master (Nova [Resto])&amp;quot;)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- BG File --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if not IsInInstance() and select(2, GetInstanceInfo()) ~= &amp;quot;pvp&amp;quot; and not UnitIsDeadOrGhost(&amp;quot;player&amp;quot;) then
+	PQR_SwapRotation(&amp;quot;Master (Nova [Resto])&amp;quot;)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Stop Casting</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if SpellIsTargeting() then
+	SpellStopCasting()
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Inc: Lifebloom</Name><Default>false</Default><SpellID>33763</SpellID><Actions></Actions><Lua>local members = members
+
+if init == nil then
+	init = true
+	local LifeBloom = nil
+end
+
+if UnitExists(&amp;quot;focus&amp;quot;)
+ and CanHeal(&amp;quot;focus&amp;quot;) then
+ 	LifeBloom = UnitGUID(&amp;quot;focus&amp;quot;)
+elseif Nova_ModLifebloomSelector then
+	if CanHeal(&amp;quot;mouseover&amp;quot;) 
+	 or UnitIsUnit(&amp;quot;player&amp;quot;, &amp;quot;mouseover&amp;quot;) then
+		LifeBloom = UnitGUID(&amp;quot;mouseover&amp;quot;)
+		PQR_CustomTarget = &amp;quot;mouseover&amp;quot;
+		return true
+	end
+end
+
+if LifeBloom and ( UnitAffectingCombat(&amp;quot;player&amp;quot;) or UnitAffectingCombat(members[1].Unit) ) then
+	for i=1, #members do
+		if LifeBloom == members[i].GUID then
+			if UnitBuffID(members[i].Unit, 33763) then
+				if select(7, UnitBuffID(members[i].Unit, 33763)) - GetTime() &amp;lt;= 3 
+				 or select(4, UnitBuffID(members[i].Unit, 33763)) &amp;lt; 3 then
+					PQR_CustomTarget = members[i].Unit
+					return true
+				end
+			else
+				PQR_CustomTarget = members[i].Unit
+				return true
+			end
+		end
+	end
+end
+
+-- Incarnation Lifebloom Spam
+if UnitBuffID(&amp;quot;player&amp;quot;, 33891) then
+	for i=1, #members do
+		if UnitBuffID(members[i].Unit, 33763) then
+			if select(7, UnitBuffID(members[i].Unit, 33763)) - GetTime() &amp;lt;= 2 then
+				PQR_CustomTarget = members[i].Unit
+				return true
+			end
+		else
+			PQR_CustomTarget = members[i].Unit
+			return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Inc: Regrowth</Name><Default>false</Default><SpellID>8936</SpellID><Actions></Actions><Lua>--Need to reword this one completely.
+
+
+if UnitBuffID(&amp;quot;player&amp;quot;, 33891) 
+ and Nova_Regrowth_Check then
+	if PQR_SpellAvailable(8936) 
+	 and UnitBuffID(&amp;quot;player&amp;quot;, 117679) then
+		if not UnitBuffID(members[1].Unit, 8936)
+		 and members[1].HP &amp;lt; Nova_RegrowthCC
+		 and ( UnitBuffID(&amp;quot;player&amp;quot;, 16870) 
+		  or UnitBuffID(&amp;quot;player&amp;quot;, 132158) ) then
+		 	PQR_CustomTarget = members[1].Unit
+		 	return true
+		end
+	end
+end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Incarnation</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if Nova_ModIncarnation
+ and UnitAffectingCombat(&amp;quot;player&amp;quot;) 
+ and Nova_ModIncarnation_Check then
+ 	CastSpellByName(GetSpellInfo(106731), &amp;quot;player&amp;quot;)
+ 	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Inc: Wild Growth</Name><Default>false</Default><SpellID>48438</SpellID><Actions></Actions><Lua>if UnitBuffID(&amp;quot;player&amp;quot;, 33891)  
+ and Nova_WildGrowth_Check then
+	if PQR_SpellAvailable(48438) then
+		GetDistance()
+		local PerfectAoETarget = {}
+		for i=1, #members do
+			table.insert(PerfectAoETarget, {NumberNearby = UnitsClose(members[i].Unit, Nova_WildGrowth), Unit = members[i].Unit} )
+		end
+		
+		table.sort(PerfectAoETarget, function(x,y) return x.NumberNearby &amp;gt; y.NumberNearby end)
+		
+		if PerfectAoETarget[1].NumberNearby &amp;gt;= 2
+		 or AverageHealth(3) &amp;lt;= Nova_WildGrowth then
+			PQR_CustomTarget = PerfectAoETarget[1].Unit
+			return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Genesis</Name><Default>false</Default><SpellID>145518</SpellID><Actions></Actions><Lua>if GenesisFinder() then
+	return true
+end</Lua><RecastDelay>1000</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Blacklist --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if  Nova_ModAddOrRemoveBlacklist then
+--Nova_ModAddOrRemoveBlacklist_Check then
+ 	local funcResult = nil
+	if UnitExists(&amp;quot;mouseover&amp;quot;) then
+		funcResult = AddOrRemoveBlacklist(&amp;quot;mouseover&amp;quot;)
+	elseif UnitExists(&amp;quot;target&amp;quot;) then
+		funcResult = AddOrRemoveBlacklist(&amp;quot;mouseover&amp;quot;)
+	end
+	
+	if funcResult and 
+	 (funcResult == 1 or funcResult == 2) then
+		if funcResult == 1 then
+			PQR_WriteToChat(&amp;quot;We removed &amp;quot;..select(2, funcResult)..&amp;quot; from your Blacklist!&amp;quot;)
+		else
+			PQR_WriteToChat(&amp;quot;We added &amp;quot;..select(2, funcResult)..&amp;quot; from your Blacklist!&amp;quot;)
+		end
+	end		
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DRUID>
