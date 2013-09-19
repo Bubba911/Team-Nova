@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?><DEATHKNIGHT><Ability><Name>Death and Decay</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(43265)
- and IsLeftShiftKeyDown()
- and not GetCurrentKeyBoardFocus() then 
+ and Nova_Mod() == 1 then 
 	CastSpellByName(GetSpellInfo(43265))
 	if SpellIsTargeting() then CameraOrSelectOrMoveStart() CameraOrSelectOrMoveStop() end  
 	return true 
@@ -16,6 +15,8 @@ end</Lua><RecastDelay>100</RecastDelay><Target>Mouseover</Target><CancelChannel>
 			return true
 		end
 	end
+	
+	FirstRun = nil
 end
 
 -- Let&amp;apos;s automatically put ourself in Blood Presence.
@@ -119,7 +120,7 @@ elseif tonumber(GetCVar(&amp;quot;BloodAoEToggle&amp;quot;)) == 2 then SetCVar(&
 
 if tonumber(GetCVar(&amp;quot;BloodAoEToggle&amp;quot;)) == 5 then AoEToggle = true else AoEToggle = false end
 
-if Nova_Pause(5) then -- 1 = Left Shit, 2 = Left Control, 3 = Left Alt, 4 = Right Shift, 5 = Right Control, 6 = Right Alt
+if Nova_Mod() == 16 then
 	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-------- Debuff Handler --------</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local FF,_,_,_,_,_,FFtimer = UnitDebuffID(PQR_CustomTarget,55095,&amp;quot;player&amp;quot;)
 local BP,_,_,_,_,_,BPtimer = UnitDebuffID(PQR_CustomTarget,55078,&amp;quot;player&amp;quot;)
@@ -227,14 +228,13 @@ end</Lua><RecastDelay>100</RecastDelay><Target>Player</Target><CancelChannel>Fal
 	and IsSpellInRange(GetSpellInfo(45902), PQR_CustomTarget) == 1 then
 		BR1start, BR1duration, BR1ready = GetRuneCooldown(1)
 		BR2start, BR2duration, BR2ready = GetRuneCooldown(2)
+		BR1type = GetRuneType(1)
+		BR2type = GetRuneType(2)
 		
-		if BR1ready or BR2ready or select(2, DeathRuneCD()) &amp;gt;= 1 then
+		if ( BR1ready and BR1type ~=4 ) or ( BR2ready and BR2type ~= 4 ) then
 			if BR1ready or BR2ready then
 				CastSpellByName(GetSpellInfo(55050), PQR_CustomTarget) 
 				return true
-			elseif select(2, DeathRuneCD()) &amp;gt;= 1 then
-				CastSpellByName(GetSpellInfo(55050), PQR_CustomTarget) 
-				return true 
 			end
 		end
 end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>False</SkipUnknown></Ability><Ability><Name>Blood Boil</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(48721)
@@ -277,16 +277,9 @@ end</Lua><RecastDelay>100</RecastDelay><Target>Player</Target><CancelChannel>Fal
   and PQ_ValidUnit
   and IsSpellInRange(GetSpellInfo(49998), PQR_CustomTarget) == 1
   and PQR_UnitFacing(&amp;quot;player&amp;quot;, PQR_CustomTarget)
-  and SafeToDeathStrike() then
-  	if select(2, DeathRuneCD()) == 0 then
-	  	return true
-	elseif Nova_UnitInfo(&amp;quot;player&amp;quot;) &amp;gt;= 70 and select(2, DeathRuneCD()) &amp;gt;= 1 then
-		return false
-	elseif Nova_UnitInfo(&amp;quot;player&amp;quot;) &amp;lt;= 70
-	 and UnitBuffID(&amp;quot;player&amp;quot;, 50421) 
-	 and select(4, UnitBuffID(&amp;quot;player&amp;quot;, 50421)) &amp;gt;= 5 then
-	 	return true
-	end
+  --and SafeToDeathStrike() 
+  then
+  	return true
 end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Rune Tap</Name><Default>false</Default><SpellID>48982</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(48982)
   and Nova_UnitInfo(&amp;quot;player&amp;quot;) &amp;lt;= 50 then
   	return true
@@ -318,24 +311,27 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True<
 	and PQ_Pestilence
 	and AoEToggle
 	and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1
-	and (UnitDebuffID(&amp;quot;target&amp;quot;,55095,&amp;quot;PLAYER&amp;quot;) and UnitDebuffID(&amp;quot;target&amp;quot;,55078,&amp;quot;PLAYER&amp;quot;)) then
+	and (UnitDebuffID(PQR_CustomTarget,55095,&amp;quot;PLAYER&amp;quot;) and UnitDebuffID(PQR_CustomTarget,55078,&amp;quot;PLAYER&amp;quot;)) then
 		_, _, BR1ready = GetRuneCooldown(1)
 		_, _, BR2ready = GetRuneCooldown(2)
 		if BR1ready or BR2ready or select(2, DeathRuneCD()) &amp;gt;= 1 then
-			PQ_Pestilence = false
-			return true
+			if not IsPlayerSpell(108170) then
+				PQ_Pestilence = false
+				return true
+			else
+				CastSpellByName(GetSpellInfo(48721), PQR_CustomTarget)
+				return false
+			end
 		end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>False</SkipUnknown></Ability><Ability><Name>Death Grip</Name><Default>false</Default><SpellID>49576</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(49576)
- and IsLeftControlKeyDown() 
- and not GetCurrentKeyBoardFocus()
+ and Nova_Mod() == 2
  and UnitExists(&amp;quot;mouseover&amp;quot;)
  and IsSpellInRange(GetSpellInfo(49576), &amp;quot;mouseover&amp;quot;) == 1
  and PQR_UnitFacing(&amp;quot;player&amp;quot;, PQR_CustomTarget)
  and UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;mouseover&amp;quot;) then
 	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Mouseover</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Dark Command</Name><Default>false</Default><SpellID>56222</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(56222)
- and IsLeftAltKeyDown() 
- and not GetCurrentKeyBoardFocus()
+ and Nova_Mod() == 4
  and UnitExists(&amp;quot;mouseover&amp;quot;)
  and IsSpellInRange(GetSpellInfo(56222), &amp;quot;mouseover&amp;quot;) == 1
  and UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;mouseover&amp;quot;)
@@ -378,4 +374,145 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False
 	if UnitBuffID(&amp;quot;player&amp;quot;, 81141) then
 		return true
 	end
-end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
+end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>- Test Frame -</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if FirstRun == nil then
+ FristRun = true
+ 
+ if GetCVar(&amp;quot;Nova_Frame&amp;quot;) == nil then RegisterCVar(&amp;quot;Nova_Frame&amp;quot;, 0) end
+ 
+ 
+-- Save
+function Nova_SaveAll()
+	print(&amp;quot;You just saved everything lawl&amp;quot;)
+end
+
+-- Hide the frame
+function Nova_HideFrame()
+	Nova_Notify:Hide()
+end
+
+-- Debug Notification Frame
+Nova_Notify = CreateFrame(&amp;apos;Frame&amp;apos;, &amp;apos;Nova_Notify&amp;apos;, UIParent)
+Nova_Notify:ClearAllPoints()
+Nova_Notify:SetHeight(300)
+Nova_Notify:SetWidth(300)
+--Nova_Notify:SetScript(&amp;apos;OnUpdate&amp;apos;, Nova_Notify_OnUpdate)
+Nova_Notify:SetMovable(true)
+Nova_Notify:EnableMouse(true)
+Nova_Notify:RegisterForDrag(&amp;quot;LeftButton&amp;quot;)
+Nova_Notify:SetScript(&amp;quot;OnDragStart&amp;quot;, Nova_Notify.StartMoving)
+Nova_Notify:SetScript(&amp;quot;OnDragStop&amp;quot;, Nova_Notify.StopMovingOrSizing)
+Nova_Notify:SetBackdrop({bgFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Background&amp;quot;, 
+                                            edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+                                            tile = true, tileSize = 16, edgeSize = 16, 
+                                            insets = { left = 4, right = 4, top = 4, bottom = 4 }});
+Nova_Notify:SetBackdropColor(0,0,0,1);
+Nova_Notify:Hide()
+Nova_Notify.text = Nova_Notify:CreateFontString(nil, &amp;apos;ARTWORK&amp;apos;, &amp;apos;PVPInfoTextFont&amp;apos;)
+Nova_Notify.text:SetAllPoints()
+Nova_Notify:SetPoint(&amp;apos;CENTER&amp;apos;, 0, 200)
+Nova_NotifyTime = 0
+
+-- Inherited Button
+Nova_iButton = CreateFrame(&amp;apos;Button&amp;apos;, Nova_iButton, nil)
+Nova_iButton:ClearAllPoints()
+Nova_iButton:RegisterForClicks(&amp;quot;LeftButtonDown&amp;quot;, &amp;quot;RightButtonDown&amp;quot;)
+Nova_iButton:SetHeight(15)
+Nova_iButton:SetWidth(45)
+Nova_iButton:SetBackdrop({bgFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Background&amp;quot;, 
+                                            edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+                                            tile = true, tileSize = 16, edgeSize = 16, 
+                                            insets = { left = 4, right = 4, top = 4, bottom = 4 }});
+Nova_iButton:SetBackdropColor(0,0,0,1);
+Nova_iButton:Hide()
+
+-- Inherited EditBoxes
+Nova_iEditbox = CreateFrame(&amp;apos;Editbox&amp;apos;, Nova_iEditbox, nil)
+Nova_iEditbox:ClearAllPoints()
+Nova_iEditbox:SetHeight(14)
+Nova_iEditbox:SetWidth(40)
+Nova_iEditbox:SetMaxNumbers(3)
+Nova_iEditbox:SetAutoFocus(false)
+Nova_iEditbox:SetFont(&amp;quot;Fonts\\ARIALN.TTF&amp;quot;, 12)
+Nova_iEditbox:SetScript(&amp;apos;OnEnterPressed&amp;apos;, function(self)
+		self:ClearFocus();
+	end);
+Nova_iEditbox:SetScript(&amp;apos;OnEscapePressed&amp;apos;, function(self)
+		self:ClearFocus();
+	end);
+Nova_iEditbox:SetBackdrop({bgFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Background&amp;quot;, 
+                                            edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+                                            tile = true, tileSize = 16, edgeSize = 16, 
+                                            insets = { left = 4, right = 4, top = 4, bottom = 4 }});
+Nova_iEditbox:SetBackdropColor(0,0,0,1);
+Nova_iEditbox:ClearFocus()
+Nova_iEditbox:Hide()
+
+
+--Exit Button
+Nova_ExitButton = CreateFrame(&amp;apos;Button&amp;apos;, Nova_ExitButton, Nova_Notify, Nova_iButton)
+Nova_ExitButton:ClearAllPoints()
+Nova_ExitButton:SetHeight(20)
+Nova_ExitButton:SetWidth(20)
+Nova_ExitButton:RegisterForClicks(&amp;quot;LeftButtonDown&amp;quot;, &amp;quot;RightButtonDown&amp;quot;)
+Nova_ExitButton:SetText(&amp;quot;X&amp;quot;)
+Nova_ExitButton:SetScript(&amp;apos;OnClick&amp;apos;, HideParentPanel(self))
+Nova_ExitButton:Show()
+Nova_ExitButton:SetPoint(&amp;apos;TOPRIGHT&amp;apos;, -50, -50)
+
+
+--Save Button
+Nova_SaveButton = CreateFrame(&amp;apos;Button&amp;apos;, nil, Nova_Notify, Nova_iButton)
+Nova_SaveButton:RegisterForClicks(&amp;quot;LeftButtonDown&amp;quot;, &amp;quot;RightButtonDown&amp;quot;)
+Nova_SaveButton:SetText(&amp;quot;Save&amp;quot;)
+Nova_SaveButton:SetScript(&amp;apos;OnClick&amp;apos;, Nova_SaveAll)
+Nova_SaveButton:Show()
+Nova_SaveButton:SetPoint(&amp;apos;BOTTOMRIGHT&amp;apos;, -50, 50)
+
+-- Test
+Nova_Editbox = CreateFrame(&amp;apos;Editbox&amp;apos;, Nova_Editbox, Nova_Notify, Nova_iEditbox)
+Nova_Editbox:SetPoint(&amp;apos;LEFT&amp;apos;, 10, 100)
+Nova_Editbox:Show()
+
+
+
+	SLASH_NOVAFRAME1 = &amp;quot;/novaframe&amp;quot;
+	SLASH_NOVAFRAME2 = &amp;quot;/nova&amp;quot;
+	function SlashCmdList.NOVAFRAME(msg, editbox)
+		if not GetCVarBool(&amp;quot;Nova_Frame&amp;quot;) then
+			SetCVar(&amp;quot;Nova_Frame&amp;quot;, 1)
+			Nova_Notify:Show()
+		else
+			SetCVar(&amp;quot;Nova_Frame&amp;quot;, 0)
+			Nova_Notify:Hide()
+		end
+	end
+
+
+
+end
+
+if Nova_Mod() == 48 then
+	Nova_Notify:Show()
+	print(&amp;quot;show&amp;quot;)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Encounter Code --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if UnitExists(&amp;apos;boss1&amp;apos;)
+ and GetInstanceInfo() == &amp;apos;raid&amp;apos; then
+ 	local npcid = = tonumber(UnitGUID(&amp;apos;boss1&amp;apos;):sub(6,10), 16)
+ 	local CastingInfo = UnitCastingInfo(&amp;apos;boss1&amp;apos;)
+ 	
+ 	if npcid == 60009 then
+	 	local EAB = ActionButton_GetPagedID(_G[&amp;apos;ExtraActionButton1&amp;apos;])
+	 	local EAF = _G[&amp;apos;ExtraActionBarFrame&amp;apos;]
+	 	
+	 	
+	 	if EAF:IsShown() then
+	 		if select(2, GetAction(EAB)) == 115911 
+	 		 and UnitExists(&amp;apos;focus&amp;apos;) 
+	 		 and UnitInRaid(&amp;apos;focus&amp;apos;)
+	 		 and not PQR_IsMoving(0.1) then
+	 			if CastingInfo == GetSpellInfo(116157) 
+	 			 or UnitDebuffID(&amp;apos;focus&amp;apos;, 116157) then
+	 				if (GetSpellCooldown(115911) + select(2, GetSpellCooldown(115911)) ) - GetTime() &amp;lt;= 2 then
+	 					UseAction(EAB, &amp;apos;focus&amp;apos;)
+	 				end
+	 			end
+	 			for i=1, #</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>

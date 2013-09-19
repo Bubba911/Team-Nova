@@ -3,7 +3,7 @@
 -------------------------------------------------------------------------------
 if not PQR_LoadedDataFile then
 	PQR_LoadedDateFile = 1
-	print("|cffFFBE69Nova Data File v2.3.4 - Sept 10, 2013|cffffffff")
+	print("|cffFFBE69Nova Data File v2.3.6 - Sept 13, 2013|cffffffff")
 end
 
 --------------------------------------------------------------------------------------------------
@@ -421,6 +421,7 @@ PQ_BossUnits = {
 	-- Training Dummies --
 	46647,		-- Level 85 Training Dummy
 	67127,		-- Level 90 Training Dummy
+	31146,
 	
 	-- Pandaria Raid Adds --
 	63346,		-- Tsulong: The Dark of Night
@@ -454,6 +455,42 @@ PQ_Aggro = {
 	60410, 	-- Elegon
 	63053	-- Garalon's Leg
 }
+
+-- Temporary Buffs
+PQ_BloodLust		= 2825
+PQ_Heroism			= 32182
+PQ_TimeWarp			= 80353
+PQ_Hysteria			= 90355
+
+-- Heroism Function.
+PQ_HasHero = nil
+function PQ_HasHero()
+	local PQ_BL = PQ_BloodLust
+	local PQ_Hero = PQ_Heroism
+	local PQ_TW = PQ_TimeWarp
+	local PQ_AH = PQ_Hysteria
+
+	if UnitBuffID("player",PQ_BL)
+		or UnitBuffID("player",PQ_Hero)
+		or UnitBuffID("player",PQ_TW)
+		or UnitBuffID("player",PQ_AH)
+	then return true else return false end
+end
+
+_shorthand = nil
+function _shorthand()
+	_Chat = PQR_WriteToChat
+	_UB = UnitBuffID
+	_UDB = UnitDebuffID
+	_Mod = Nova_Mod
+	_SA = PQR_SpellAvailable
+	_PS = IsPlayerSpell
+	_SIR = IsSpellInRange
+	_GI	= GetSpellInfo
+	_UE = UnitExists
+	_CSN = CastSpellByName
+end
+
 
 if PQR_LoadLua("PQR_Encryption.lua") == false then
 	PQR_WriteToChat("You are missing PQR_Encryption.lua. Rotation has been stopped.", "Error")
