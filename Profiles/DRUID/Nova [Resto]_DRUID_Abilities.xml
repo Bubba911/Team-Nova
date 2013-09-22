@@ -192,6 +192,9 @@ if not PQI_Setup_Healing then
 				step = 1,
 				},
 			},
+			{name = &amp;apos;Wild Mushroom&amp;apos;,
+			enable = true,
+			},
 			{name = &amp;apos;Wild Mushroom Bloom&amp;apos;,
 			enable = true,
 			widget = {
@@ -345,7 +348,7 @@ function PQI_Setup_Variables(tableName, Prefix) -- Name of the PQI Table, [Prefi
 			local PQI_String_Enable = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, AbilitiesName, &amp;quot;enable&amp;quot;)
 			local PQI_String_Value = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, AbilitiesName, &amp;quot;value&amp;quot;)
 			
-			if _G[PQI_String_Value] then -- This is to verify that PQI is fully loaded before trying to make the Variables
+			if _G[PQI_String_Enable] ~= nil then -- This is to verify that PQI is fully loaded before trying to make the Variables
 				_G[Variable..&amp;apos;_Check&amp;apos;] = _G[tostring(PQI_String_Enable)] -- Output = Prefix_AbilityName_Check
 				_G[Variable] = _G[tostring(PQI_String_Value)] -- Output = Prefix_AbilityName
 			else
@@ -360,7 +363,7 @@ function PQI_Setup_Variables(tableName, Prefix) -- Name of the PQI Table, [Prefi
 			local PQI_String_Enable = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, HotkeyName, &amp;quot;enable&amp;quot;)
 			local PQI_String_Key = string.format(&amp;apos;%s_%s_%s&amp;apos;, PQI_String, HotkeyName, &amp;quot;key&amp;quot;)
 			
-			if _G[PQI_String_Key] then
+			if _G[PQI_String_Key] ~= nil then
 				_G[Variable..&amp;apos;_Check&amp;apos;] = _G[tostring(PQI_String_Enable)] -- Output = Prefix_ModAbilityName_Check
 				_G[Variable] = PQI:IsHotkeys(_G[PQI_String_Key]) -- Output = Prefix_ModAbilityName_Key
 			else
@@ -1005,6 +1008,10 @@ function CheckForValidSpell(string)
 	local SpellIDCheck = gsub(string, &amp;quot;[%a%p%s]&amp;quot;, &amp;quot;&amp;quot;)
 	local SpellNameCheck = string.lower(gsub(string, &amp;quot;[%s%d%p]&amp;quot;, &amp;quot;&amp;quot;))
 	
+	if type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;number&amp;quot; or type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;string&amp;quot; then
+		SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, 0)
+	end
+	
 	-- First We&amp;apos;ll check the Spell ID as it is a quicker check, and return true if we successfully add
 	if string.len(SpellIDCheck) &amp;gt; 0 then
 		local SpellID = tonumber(SpellIDCheck)
@@ -1073,7 +1080,7 @@ function NovaSpellQueueHistory(spellID)
 				local spellButton = CreateFrame(&amp;quot;button&amp;quot;, &amp;quot;SpellQueueSystemButton&amp;quot;..tostring(#Nova_SpellQueueHistory + 1), SpellQueueSystemContent, &amp;quot;UIPanelButtonTemplate&amp;quot;)
 				spellButton:SetSize(110, 20)
 				spellButton:SetScript(&amp;quot;OnClick&amp;quot;, function(self) 
-					CheckForValidSpell(self:GetText())
+					SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, self:GetText())
 				end)
 				table.insert(Nova_SpellQueueHistory, 1, {name=buttonName, id=buttonID, button=spellButton}) 
 		elseif #Nova_SpellQueueHistory == 6 then
@@ -1097,7 +1104,7 @@ function NovaSpellQueueHistory(spellID)
 end
 
 function Nova_Queue_Setup()
-
+	if GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;) == nil then RegisterCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;) end
 	Nova_SpellBookCache = { }
 	Nova_SpellQueueTable = { }
 	Nova_SpellQueueHistory = { }
@@ -1196,7 +1203,7 @@ function Nova_Queue_Setup()
 	frameEditbox:ClearFocus()
 	frameEditbox:SetPoint(&amp;quot;BOTTOMLEFT&amp;quot;, frameContent, &amp;quot;TOPLEFT&amp;quot;, 8, 4)
 	frameEditbox:SetScript(&amp;quot;OnEnterPressed&amp;quot;, function(self) 
-		CheckForValidSpell(self:GetText())
+		SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, self:GetText())
 		self:SetText(&amp;quot;&amp;quot;)
 		self:ClearFocus() 
 	end)
@@ -1213,7 +1220,7 @@ function Nova_Queue_Setup()
 	frameAccept:SetSize(60, 18)
 	frameAccept:SetPoint(&amp;quot;BOTTOMRIGHT&amp;quot;, frameContent, &amp;quot;TOPRIGHT&amp;quot;, 0, 4)
 	frameAccept:SetScript(&amp;quot;OnClick&amp;quot;, function() 
-		CheckForValidSpell(frameEditbox:GetText())
+		SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, frameEditbox:GetText())
 		frameEditbox:SetText(&amp;quot;&amp;quot;)
 		frameEditbox:ClearFocus() 
 	end)
@@ -1227,9 +1234,9 @@ end
 
 SLASH_NOVASPELLQUEUE1 = &amp;quot;/novaspell&amp;quot;
 function SlashCmdList.NOVASPELLQUEUE(spellText, editbox)
-	if not spellText == &amp;quot;firstrun&amp;quot; then
+	if spellText ~= &amp;quot;firstrun&amp;quot; then
 		if issecure() then
-			CheckForValidSpell(spellText)
+			SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, spellText)
 		else
 			print(&amp;quot;Not Secure to use the Slash Commands, use Frame from now on, until you can /console reloadui&amp;quot;)
 		end
@@ -1250,6 +1257,10 @@ if not Setup then
 	
 	RunMacroText(&amp;quot;/novaspell firstrun&amp;quot;)
 	Setup = true
+end
+
+if type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;string&amp;quot; or type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;number&amp;quot; then
+	CheckForValidSpell(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;))
 end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Spell Queue Cast --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if #Nova_SpellQueueTable &amp;gt; 0 then
 	for i=1, #Nova_SpellQueueTable do
 		spell = Nova_SpellQueueTable[i].id
