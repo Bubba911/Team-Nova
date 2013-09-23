@@ -477,6 +477,101 @@ function PQ_HasHero()
 	then return true else return false end
 end
 
+
+--Racial Ids
+PQ_RacialIDs = {
+		28730,	--Arcane Torrent: Pally, Priest, Mage, Lock
+		50613,	--Arcane Torrent: Death Knight
+		80483,	--Arcane Torrent: Hunter
+		129597,	--Arcane Torrent: Monk
+		25046,	--Arcane Torrent: Rogue
+		69179,	--Arcane Torrent: Warrior
+		26297,	--Berserking: All Classes
+		33702,	--Blood Fury: Mage, Lock
+		33697,	--Blood Fury: Shaman, Monk
+		20572,	--Blood Fury: Warrior, Hunter, Rogue, Death Knight
+		7744,	--Will of the Forsaken: All Classes
+		69041,	--Rocket Barrage: All Classes
+		20594,	--StoneForm: All Classes
+		20589,	--Escape Artist:All Classes
+		59752	--Every Man for Himself
+	}
+	
+Nova_Racial = nil
+function Nova_Racial()
+	local PQ_ActiveID = 0
+		
+	for i=1, #PQ_RacialIDs do
+		if IsPlayerSpell(PQ_RacialIDs[i]) == true then
+			PQ_ActiveID = PQ_RacialIDs[i]
+		end
+	end
+	
+	if PQ_ActiveID == 28730 then	--Arcane Torrent: Pally, Priest, Mage, Lock
+		if GetSpellCooldown(PQ_ActiveID) == 0 
+			and select(3, Nova_UnitInfo("player")) <= 98
+			and UnitAffectingCombat("player")
+			and SpecialUnit()
+		then
+			CastSpellByID(PQ_ActiveID)
+			return true
+		end
+	elseif PQ_ActiveID == 50613 --Arcane Torrent: Death Knight
+			or PQ_ActiveID == 80483 --Arcane Torrent: Hunter
+			or PQ_ActiveID == 25046 --Arcane Torrent: Rogue
+			or PQ_ActiveID == 69179 --Arcane Torrent: Warrior
+		then
+			if GetSpellCooldown(PQ_ActiveID) == 0 
+				and select(4, Nova_UnitInfo("player")) <= 85
+				and UnitAffectingCombat("player")
+				and SpecialUnit()
+			then
+				CastSpellByID(PQ_ActiveID)
+				return true
+			end
+	elseif PQ_ActiveID == 129597 then	--Arcane Torrent: Monk
+		if GetSpellCooldown(PQ_ActiveID) == 0 
+			and select(5, Nova_UnitInfo("player")) <= 3
+			and UnitAffectingCombat("player")
+			and SpecialUnit()
+		then
+			CastSpellByID(PQ_ActiveID)
+			return true
+		end
+	elseif PQ_ActiveID == 26297 then	--Berserking: All Classes
+		if GetSpellCooldown(PQ_ActiveID) == 0 
+			and UnitAffectingCombat("player")
+			and SpecialUnit()
+		then
+			CastSpellByID(PQ_ActiveID)
+			return true
+		end
+	elseif PQ_ActiveID == 33702 --Blood Fury: Mage, Lock
+			or PQ_ActiveID == 33697 --Blood Fury: Shaman, Monk
+			or PQ_ActiveID == 20572 --Blood Fury: Warrior, Hunter, Rogue, Death Knight
+		then	
+			if GetSpellCooldown(PQ_ActiveID) == 0 
+				and UnitAffectingCombat("player")
+				and SpecialUnit()
+			then
+				CastSpellByID(PQ_ActiveID)
+				return true
+			end
+	elseif PQ_ActiveID == 7744 then		--Will of the Forsaken: All Classes
+		return false
+	elseif PQ_ActiveID == 69041 then	--Rocket Barrage: All Classes
+		return false
+	elseif PQ_ActiveID == 20594 then	--StoneForm: All Classes
+		return false
+	elseif PQ_ActiveID == 20589 then	--Escape Artist:All Classes
+		return false
+	elseif PQ_ActiveID == 59752 then	--Every Man for Himself
+		return false
+	else
+		return false
+	end
+end
+
 _shorthand = nil
 function _shorthand()
 	_Chat = PQR_WriteToChat
