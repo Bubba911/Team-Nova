@@ -34,8 +34,8 @@ http://subversion.assembla.com/svn/nova-project/trunk/Profiles/PALADIN/Nova%20[H
 http://subversion.assembla.com/svn/nova-project/trunk/Profiles/WARRIOR/Nova%20[Arms]_WARRIOR_Abilities.xml
 http://subversion.assembla.com/svn/nova-project/trunk/Profiles/WARRIOR/Nova%20[Arms]_WARRIOR_Rotations.xml
 
-http://subversion.assembla.com/svn/nova-project/trunk/Profiles/WARRIOR/Nova%20[Prot]_WARRIOR_Abilities.xml
-http://subversion.assembla.com/svn/nova-project/trunk/Profiles/WARRIOR/Nova%20[Prot]_WARRIOR_Rotations.xml
+http://subversion.assembla.com/svn/nova-project/trunk/Profiles/WARRIOR/Nova%20[Fury]_WARRIOR_Abilities.xml
+http://subversion.assembla.com/svn/nova-project/trunk/Profiles/WARRIOR/Nova%20[Fury]_WARRIOR_Rotations.xml
 
 http://subversion.assembla.com/svn/nova-project/trunk/Profiles/DRUID/Nova%20[Balance]_DRUID_Abilities.xml
 http://subversion.assembla.com/svn/nova-project/trunk/Profiles/DRUID/Nova%20[Balance]_DRUID_Rotations.xml
@@ -70,4 +70,3 @@ http://subversion.assembla.com/svn/nova-project/trunk/Profiles/HUNTER/Nova%20[Su
 --DATA File
 http://subversion.assembla.com/svn/nova-project/trunk/Data/PQR_Nova_Data.lua
 http://subversion.assembla.com/svn/nova-project/trunk/Data/PQR_Nova_Frame.lua
-http://subversion.assembla.com/svn/nova-project/trunk/Data/PQR_Encryption.lua
