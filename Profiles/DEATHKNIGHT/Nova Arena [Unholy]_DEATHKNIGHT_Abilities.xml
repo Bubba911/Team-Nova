@@ -1,0 +1,865 @@
+<?xml version="1.0" encoding="utf-8" ?><DEATHKNIGHT><Ability><Name>-- DoT Tracking --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>-- DoT Reader
+-- In a run once environment we shall create the Tooltip that we will be reading
+-- all of the spell details from
+if not nDoTTargets then
+	nDoTTargets = {}
+	nMetaTable = {
+		dotDamage = 0,
+		dotExpTime = 0,
+		savedAP = 0,
+	}
+	
+	local function cTarFinder(tarGUID)
+		local cTar = {&amp;quot;target&amp;quot;, &amp;quot;mouseover&amp;quot;, &amp;quot;focus&amp;quot; }
+		-- For Raid/Party Targets
+		if IsInRaid() then
+			i = 1
+			while UnitExists(&amp;quot;raid&amp;quot;..i) do
+				table.insert(cTar, &amp;quot;raid&amp;quot;..i)
+				i=i+1
+			end
+		elseif IsInGroup() then
+			i=1
+			while UnitExists(&amp;quot;party&amp;quot;..i) do
+				table.insert(cTar, &amp;quot;party&amp;quot;..i)
+				i=i+1
+			end
+		end
+		-- For Arena Targets
+		if IsInInstance() and IsActiveBattlefieldArena() then
+			for i=1, 5 do
+				table.insert(cTar, &amp;quot;arena&amp;quot;..i)
+				table.insert(cTar, &amp;quot;arenapet&amp;quot;..i)
+			end
+		end
+	
+		for i=1, #cTar do
+			if UnitExists(cTar[i]) then
+				if UnitGUID(cTar[i]) == tarGUID then
+					return cTar[i]
+				end
+			end
+		end
+	
+		return nil
+	end
+	
+	nDotReader = CreateFrame( &amp;quot;GameTooltip&amp;quot;, &amp;quot;nDotTT&amp;quot;, nil, &amp;quot;GameTooltipTemplate&amp;quot; ); --Tooltip name cannot be nil
+	nDotReader:SetOwner( WorldFrame, &amp;quot;ANCHOR_NONE&amp;quot; );
+	-- Allow tooltip SetX() methods to dynamically add new lines based on these
+	nDotReader:AddFontStrings(
+		nDotReader:CreateFontString( &amp;quot;$parentTextLeft1&amp;quot;, nil, &amp;quot;GameTooltipText&amp;quot; ),
+		nDotReader:CreateFontString( &amp;quot;$parentTextRight1&amp;quot;, nil, &amp;quot;GameTooltipText&amp;quot; ) );
+	nDoTCheck = nil
+	function nDoTCheck(spellID, tar)
+		if GetCVar(&amp;quot;DotDamage&amp;quot;) == nil then
+			RegisterCVar(&amp;quot;DotDamage&amp;quot;, 0)
+		end
+		nDotReader:ClearLines()
+		local i = 1
+		while UnitDebuff(tar, i) do
+			if UnitDebuff(tar, i) == GetSpellInfo(spellID) then
+				nDotReader:SetUnitDebuff(tar, i)
+				scanText = _G[&amp;quot;nDotTTTextLeft2&amp;quot;]:GetText()
+				local DoTDamage = scanText:match(&amp;quot;([0-9]+%.?[0-9]*)&amp;quot;)
+				SetCVar(&amp;quot;DotDamage&amp;quot;, tonumber(DoTDamage))
+				return tonumber(GetCVar(&amp;quot;DotDamage&amp;quot;)), select(7, UnitDebuff(tar, i))
+			end
+			i=i+1
+		end
+	
+		return 0, 0
+	end
+	
+	-- DoT Tracker
+	nDoTTracker = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;nDoTTracker&amp;quot;)
+	nDoTTracker:RegisterEvent(&amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot;)
+	nDoTTracker:RegisterEvent(&amp;quot;PLAYER_REGEN_ENABLED&amp;quot;)
+	nDoTTracker:SetScript(&amp;quot;OnEvent&amp;quot;, function(event, _, ...)
+		local arg = {...}
+		if event == &amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot; then
+			if arg[4] == UnitGUID(&amp;quot;player&amp;quot;) then
+		
+				-- This is for when we first apply the Debuff to the Target
+		
+				if arg[2] == &amp;quot;SPELL_AURA_APPLIED&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_APPLIED&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						local cTar = cTarFinder(arg[8])
+						if cTar then
+							local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end --setmetatable(nDoTTargets[shGUID][tostring(arg[12])], nMetaTable) end
+							nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+						else
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end
+							nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8]}
+						end
+					end
+		
+				-- This is for when the Debuff is Removed from the Target
+		
+				elseif arg[2] == &amp;quot;SPELL_AURA_REMOVED&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REMOVED&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							nDoTTargets[shGUID][arg[12]] = nil
+						end
+					end
+		
+				-- This is for when we change targets and on a Tick, it will refresh the dotDamage is it wasn&amp;apos;t there before
+					
+				elseif arg[2] == &amp;quot;SPELL_AURA_DAMAGE&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_DAMAGE&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							if nDoTTargets[shGUID][arg[12]] then
+								if nDoTTargets[shGUID][arg[12]].dotDamage == 0 then
+									local cTar = cTarFinder(arg[8])
+									if cTar then
+										local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+										nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = nDoTTargets[shGUID][arg[12]].savedAP, guid = arg[8] }
+									end
+								end
+							else
+								local cTar = cTarFinder(arg[8])
+								if cTar then
+									local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+									nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+								else
+									nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+								end
+							end
+						else
+							local cTar = cTarFinder(arg[8])
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end
+							if cTar then
+								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+							else
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8]}
+							end
+						end
+					end
+		
+					-- This is for when we Reapply the Debuff to the Target (before it is removed)
+		
+				elseif arg[2] == &amp;quot;SPELL_AURA_REFRESH&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REFRESH&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							local cTar = cTarFinder(arg[8])
+							if cTar then
+								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+							else
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+							end
+						else
+							local cTar = cTarFinder(arg[8])
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end
+							if cTar then
+								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+							else
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8]}
+							end
+						end
+					end
+				end
+			end
+		elseif event == &amp;quot;PLAYER_REGEN_ENABLED&amp;quot; then
+			table.wipe(nDoTTargets)
+		end
+	end)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Debuff Handling</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local FF,_,_,_,_,_,FFtimer = UnitDebuffID(PQR_CustomTarget,55095,&amp;quot;player&amp;quot;)
+local BP,_,_,_,_,_,BPtimer = UnitDebuffID(PQR_CustomTarget,55078,&amp;quot;player&amp;quot;)
+
+if IsSpellKnown(77575)
+	and PQ_ValidUnit
+	and IsSpellInRange(GetSpellInfo(77575),PQR_CustomTarget) == 1
+then
+	-- If Outbreak is on Cooldown we&amp;apos;ll check if the diseases are up.
+	if GetSpellCooldown(77575) ~= 0 then
+		if FF then
+			-- If less than 3 seconds left on Frost Fever, reapply is Outbreak is down.
+			if FFtimer - GetTime() &amp;lt; 3 then
+				CastSpellByID(45477,PQR_CustomTarget)
+			end
+		-- If Frost Fever isn&amp;apos;t on Target, apply with Icey Touch if Outbreak is down.
+		else CastSpellByID(45477,PQR_CustomTarget) end
+		
+		if BP then
+			-- If less than 3 seconds left on Blood Plague, reapply is Outbreak is down.
+			if BPtimer - GetTime() &amp;lt; 3 then
+				CastSpellByID(45462,PQR_CustomTarget)
+			end
+		-- If Blood Plague isn&amp;apos;t on Target, apply with Icey Touch if Outbreak is down.
+		else CastSpellByID(45462,PQR_CustomTarget) end
+	else
+		-- If Outbreak is off Cooldown, and either FF or BP isn&amp;apos;t on target, cast Outbreak
+		if not FF or not BP then
+			CastSpellByID(77575,PQR_CustomTarget)
+		else
+			-- If both Diseases are on, but either one has less than 3 seconds remaining, Cast Outbreak.
+			if (FF and FFtimer - GetTime() &amp;lt; 3) or (BP and BPtimer - GetTime() &amp;lt; 3)
+			then CastSpellByID(77575,PQR_CustomTarget) end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Init --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>-------------------------------------------------------------------------------
+-- Variables &amp; Sanity checks
+-------------------------------------------------------------------------------
+if PQR_RotationStarted then
+	PQR_RotationStarted = false
+	
+	-- Load LUA Data Files
+	if PQR_LoadLua ~= nil then
+		-- Load the data
+		if PQR_LoadLua(&amp;quot;PQR_Nova_Data.lua&amp;quot;) == false then
+			PQR_WriteToChat(&amp;quot;|cffFFCCFFYou&amp;apos;re missing PQR_Nova_Data.lua - Make sure it&amp;apos;s in your Data folder! The Rotation has been halted.|cffffffff&amp;quot;, &amp;quot;Error&amp;quot;)
+			PQR_StopRotation()
+			return true
+		end
+	end
+end
+
+NUI = Nova_UnitInfo
+
+--Halt the entire profile if we&amp;apos;re not in a usable spec!
+if not CastTimer then CastTimer = GetTime() end
+if PQR_Spec == 1 then CurSpec = &amp;quot;Blood&amp;quot; elseif PQR_Spec == 2 then CurSpec = &amp;quot;Frost&amp;quot; end
+
+if PQR_Spec ~= 3 then
+	if GetTime() - CastTimer &amp;gt;= 4 then
+		PQR_WriteToChat(&amp;quot;|cff99CCFFYou&amp;apos;re currently specced: |cffFFCCFF&amp;quot;..CurSpec..&amp;quot;|cff99CCFF! You need to be Unholy!&amp;quot;, &amp;quot;Error&amp;quot;)
+		CastTimer = GetTime()
+	end
+end
+
+-- Let them know everything worked out fine!
+if not PQR_UHDKLoaded then
+	PQR_UHDKLoaded = true
+	PQR_WriteToChat(&amp;quot;|cff99CCFFNova - |cffc5bfb3Unholy |cffC41F3BDeath Knight|cff99CCFF Rotation is |cffFFCCFFLoaded!|cffffffff&amp;quot;)
+end
+
+-- Variables
+PQR_ResetMovementTime = 0.3
+PQR_SpellAvailableTime = ((select(3,GetNetStats()) + select(4,GetNetStats())) / 1000)
+-------------------
+-- PQI Setup
+-------------------
+
+if not PQI_Setup_Unholy then
+	PQI_Unholy_DK = {
+		name = &amp;apos;Arena UH DK&amp;apos;,
+		author = &amp;apos;Nova&amp;apos;,
+		abilities = {
+			{name = &amp;apos;Lichborne Heal&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 80,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Lichborne Heal Pet&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 40,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Summon Gargoyle&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 30,
+				step = 1,
+				},
+			},
+			
+			{name = &amp;apos;Empower Rune Weapon&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 30,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Unholy Frenzy&amp;apos;,
+			enable = true,
+			widget = {
+				type = &amp;apos;numbox&amp;apos;,
+				value = 30,
+				step = 1,
+				},
+			},
+			{name = &amp;apos;Enter BG Wait Time&amp;apos;,
+				enable = true,
+				tooltip = &amp;apos;This is how long it will take to click Enter Battleground Button&amp;apos;,
+				widget = {
+					type = &amp;apos;numbox&amp;apos;,
+					value = 10,
+					step = 1,
+					min = 1,
+					max = 20,
+				},
+			},
+		},
+		hotkeys = {
+			{name = &amp;apos;Pause&amp;apos;,
+			enable = true,
+			tooltip = &amp;quot;Pauses the rotation, allowing you to click/cast something yourself!&amp;quot;,
+			hotkeys = {&amp;apos;la&amp;apos;},
+			},
+			{name = &amp;apos;Blood Boil&amp;apos;,
+			enable = true,
+			tooltip = &amp;quot;Will cast Blood Boil (Good for Rolling Blood!)&amp;quot;,
+			hotkeys = {&amp;apos;ls&amp;apos;},
+			},
+			{name = &amp;apos;Death Grip&amp;apos;,
+			enable = true,
+			tooltip = &amp;quot;Death grip mouseover target&amp;quot;,
+			hotkeys = {&amp;apos;lc&amp;apos;},
+			},
+			{name = &amp;apos;BurnSwitch&amp;apos;,
+			enable = true,
+			tooltip = &amp;quot;Not yet implemented&amp;quot;,
+			hotkeys = {&amp;apos;rs&amp;apos;},
+			},
+		}
+	}
+	
+	PQI_Setup_Unholy = PQI:AddRotation(PQI_Unholy_DK)
+end
+
+
+function PQI_Setup_Variables(tableName, Prefix) -- Name of the PQI Table, [Prefix you want to affix to Variable (Nova is default if left blank)]
+	local tableName = tableName
+	local Prefix = Prefix or &amp;quot;Nova&amp;quot;
+	if type(Prefix) ~= &amp;quot;string&amp;quot; then
+		Prefix = &amp;quot;Nova&amp;quot;
+	end
+	local PQI_String = string.format(&amp;quot;%s_%s%s&amp;quot;, &amp;quot;PQI&amp;quot;, gsub(tableName.author, &amp;quot;%s&amp;quot;, &amp;quot;&amp;quot;), gsub(tableName.name, &amp;quot;%s&amp;quot;, &amp;quot;&amp;quot;))
+	if type(tableName.abilities) == &amp;quot;table&amp;quot; then
+		for i=1, #tableName.abilities do
+			local AbilitiesName = gsub(tableName.abilities[i].name, &amp;apos;%s&amp;apos;, &amp;apos;&amp;apos;)
+			local Variable = string.format(&amp;apos;%s_%s&amp;apos;, Prefix, AbilitiesName)
+			local PQI_String_Enable = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, AbilitiesName, &amp;quot;enable&amp;quot;)
+			local PQI_String_Value = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, AbilitiesName, &amp;quot;value&amp;quot;)
+			
+			if _G[PQI_String_Enable] ~= nil then -- This is to verify that PQI is fully loaded before trying to make the Variables
+				_G[Variable..&amp;apos;_Check&amp;apos;] = _G[tostring(PQI_String_Enable)] -- Output = Prefix_AbilityName_Check
+				_G[Variable] = _G[tostring(PQI_String_Value)] -- Output = Prefix_AbilityName
+			else
+				return false
+			end
+		end
+	end
+	if type(tableName.hotkeys) == &amp;quot;table&amp;quot; then
+		for h=1, #tableName.hotkeys do
+			local HotkeyName = gsub(tableName.hotkeys[h].name, &amp;apos;%s&amp;apos;, &amp;apos;&amp;apos;)
+			local Variable = string.format(&amp;apos;%s_%s%s&amp;apos;, Prefix, &amp;quot;Mod&amp;quot;, HotkeyName)
+			local PQI_String_Enable = string.format(&amp;quot;%s_%s_%s&amp;quot;, PQI_String, HotkeyName, &amp;quot;enable&amp;quot;)
+			local PQI_String_Key = string.format(&amp;apos;%s_%s_%s&amp;apos;, PQI_String, HotkeyName, &amp;quot;key&amp;quot;)
+			
+			if _G[PQI_String_Key] ~= nil then
+				_G[Variable..&amp;apos;_Check&amp;apos;] = _G[tostring(PQI_String_Enable)] -- Output = Prefix_ModAbilityName_Check
+				_G[Variable] = PQI:IsHotkeys(_G[PQI_String_Key]) -- Output = Prefix_ModAbilityName_Key
+			else
+				return false
+			end
+		end
+	end
+
+	return true
+end
+
+
+
+
+
+-------------------------------------------------------------------------------
+-- Misc. Functions
+-------------------------------------------------------------------------------
+if not enterBG then
+	local enterBG = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;enterBG&amp;quot;)
+	enterBG:RegisterEvent(&amp;quot;PLAYER_ENTERING_BATTLEGROUND&amp;quot;)
+	enterBG:SetScript(&amp;quot;OnEvent&amp;quot;, function(self, event, ...)
+		if event == &amp;quot;PLAYER_ENTERING_BATTLEGROUND&amp;quot; then AlreadyJoined = false end
+	end)
+end
+
+
+-- Death Rune on CD Check
+DeathRuneCD = nil
+function DeathRuneCD()
+	local DRunesOnCD = 0
+	local DRunesOffCD = 0
+	for i=1, 4 do
+		if GetRuneType(i) == 4 and select(3, GetRuneCooldown(i)) == false then
+			DRunesOnCD = DRunesOnCD + 1
+		elseif GetRuneType(i) == 4 and select(3, GetRuneCooldown(i)) == true then
+			DRunesOffCD = DRunesOffCD + 1
+		end
+	end
+	
+	return DRunesOnCD, DRunesOffCD
+end
+
+-- Death Rune checker.
+DeathRuneCheck = nil
+function DeathRuneCheck()
+	local numDeathRunes = 0
+	for i=1, 6 do
+		if GetRuneType(i) == 4 then
+			numDeathRunes = numDeathRunes + 1
+		end
+	end
+	
+	return numDeathRunes
+end
+
+-- Normal Rune Check
+RuneCheck = nil
+function RuneCheck()
+	local nRuneTable = {0,0,0,0}
+	for i=1, 6 do
+		if select(3, GetRuneCooldown(i)) == true then
+			nRuneTable[GetRuneType(i)] = nRuneTable[GetRuneType(i)] + 1
+		end
+	end
+	
+	return nRuneTable[1], nRuneTable[2], nRuneTable[3], nRuneTable[4]
+end
+
+--Depleted Rune Check
+DepletedRune = nil
+function DepletedRune()
+	local total = 0
+	if select(3, GetRuneCooldown(1)) == false and select(3, GetRuneCooldown(2)) == false then
+		total = total + 1
+	end
+	if select(3, GetRuneCooldown(3)) == false and select(3, GetRuneCooldown(4)) == false then
+		total = total + 1
+	end
+	if select(3, GetRuneCooldown(5)) == false and select(3, GetRuneCooldown(6)) == false then
+		total = total + 1
+	end
+
+	return total
+end
+
+CalcDoT = nil
+function CalcDoT(string)
+	local baseDMG = string == &amp;quot;shadow&amp;quot; and 210.5 or 226
+	local apPerc = string == &amp;quot;shadow&amp;quot; and .256 or .251
+	local apAmount = UnitAttackPower(&amp;quot;player&amp;quot;)
+	local masteryAmount = string == &amp;quot;shadow&amp;quot; and 1+(GetMasteryEffect()/100) or 1
+	local calc = (226 + (apPerc * apAmount)) *  masteryAmount
+
+	return calc
+end
+
+nSmartDoT = nil
+function nSmartDoT(spellID)
+	local shGUID = string.sub(tostring(UnitGUID(&amp;quot;target&amp;quot;)), -5, -1)
+	if nDoTTargets[shGUID] then
+		if nDoTTargets[shGUID][spellID] then
+			if nDoTTargets[shGUID][spellID].dotDamage &amp;gt; 0 then
+				local nBloodPlague = CalcDoT(&amp;quot;shadow&amp;quot;)
+				if nBloodPlague &amp;gt; nDoTTargets[shGUID][spellID].dotDamage then
+					if (math.abs(nBloodPlague-nDoTTargets[shGUID][spellID].dotDamage)) / nBloodPlague &amp;gt;= .10 then
+						return true
+					end
+				end
+			elseif UnitAttackPower(&amp;quot;player&amp;quot;) &amp;gt; nDoTTargets[shGUID][spellID].savedAP then
+				if (math.abs(UnitAttackPower(&amp;quot;player&amp;quot;) - nDoTTargets[shGUID][spellID].savedAP)) / UnitAttackPower(&amp;quot;player&amp;quot;) &amp;gt;= .10 then
+					return true
+				end
+			end
+		else 
+			return true
+		end
+	else
+		return true
+	end
+	
+	return false
+end
+
+nDoT=nil
+function nDoT(spellID)
+	local shGUID = string.sub(tostring(UnitGUID(&amp;quot;target&amp;quot;)), -5, -1)
+	if nDoTTargets[shGUID] then
+		if nDoTTargets[shGUID][spellID] then
+			if nDoTTargets[shGUID][spellID].dotExpTime - GetTime() &amp;lt;= 3 then
+				return true
+			else
+				return false
+			end
+		else 
+			return true
+		end
+	else
+		return true
+	end
+	
+	return false
+end
+
+NoImmunity = nil
+function NoImmunity(tar)
+	local ImmunityList = { }
+	for i=1, #ImmunityList do
+		if UnitDebuff(tar, GetSpellInfo(ImmunityList[i])) then
+			return false
+		end
+	end
+
+	return true
+end
+
+if not EnterBGTimer then EnterBGTimer = 0; AlreadyJoined = false end
+local acceptQueue=GetBattlefieldStatus(1)
+if acceptQueue == &amp;quot;confirm&amp;quot; and not AlreadyJoined and Nova_EnterBGWaitTime_Check then
+	AlreadyJoined = true
+	EnterBGTimer = GetTime()
+end
+
+if AlreadyJoined and EnterBGTimer &amp;gt; 0 then
+	if GetTime() - EnterBGTimer &amp;gt;= Nova_EnterBGWaitTime and Nova_EnterBGWaitTime_Check then
+		EnterBGTimer = 0
+		AcceptBattlefieldPort(1,1)
+	end
+end
+
+
+-- Target validation.
+if UnitExists(&amp;quot;target&amp;quot;)
+	and (UnitIsEnemy(&amp;quot;player&amp;quot;, &amp;quot;target&amp;quot;) or UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;target&amp;quot;))
+	and (not UnitIsDeadOrGhost(&amp;quot;target&amp;quot;) and not UnitIsCorpse(&amp;quot;target&amp;quot;))
+	and not PQR_IsOutOfSight(&amp;quot;target&amp;quot;) and NoImmunity(&amp;quot;target&amp;quot;)
+then
+	PQ_ValidUnit = true
+	PQR_CustomTarget = &amp;quot;target&amp;quot;
+end
+
+if not PetDelayTimer then PetDelayTimer = GetTime() end
+if not PQI_Setup_Variables(PQI_Unholy_DK, &amp;quot;Nova&amp;quot;) 
+ or (Nova_ModPause
+ and Nova_ModPause_Check)
+ or UnitIsDeadOrGhost(&amp;quot;player&amp;quot;)
+ or IsMounted() then
+ 	PetDelayTimer = GetTime()
+ 	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Strike</Name><Default>false</Default><SpellID>45462</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45462)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	if nDoT(55078) then
+		if Nova_CheckLastCast(3, 0.5) then
+			return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Festering Strike</Name><Default>false</Default><SpellID>85948</SpellID><Actions></Actions><Lua>local drCD, drCheck = { DeathRuneCD() }, { DeathRuneCheck() }
+
+if PQR_SpellAvailable(85948)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	if drCD[2] &amp;lt; 2 then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Chains of Ice</Name><Default>false</Default><SpellID>45524</SpellID><Actions></Actions><Lua>local chains = { UnitDebuffID(&amp;quot;target&amp;quot;, 45524) }
+if PQR_SpellAvailable(45524)
+ and PQ_ValidUnit
+ and not chains[1]
+ and IsSpellInRange(GetSpellInfo(45524), PQR_CustomTarget) == 1
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 0
+ and PQR_IsMoving(1) then
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Scourge Strike</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if ( select(2, RuneCheck()) &amp;gt; 0 or select(4, RuneCheck()) &amp;gt; 0 )
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	CastSpellByName(GetSpellInfo(55090), PQR_CustomTarget)
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Strike</Name><Default>false</Default><SpellID>49998</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Soul Reaper</Name><Default>false</Default><SpellID>130736</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(130736)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(130736), PQR_CustomTarget) == 1 then 	
+	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
+	if targetHealth &amp;lt;= 30 then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Raise Dead</Name><Default>false</Default><SpellID>46584</SpellID><Actions></Actions><Lua>if not UnitExists(&amp;quot;pet&amp;quot;) and GetTime() - PetDelayTimer &amp;gt;= 2 then
+	if PQR_SpellAvailable(46584) then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Outbreak</Name><Default>false</Default><SpellID>77575</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(77575)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(77575), PQR_CustomTarget) == 1 then
+	if nDoT(55095) then
+		if Nova_CheckLastCast(3, 0.5) then
+			return true
+		end
+	elseif nDoT(55078) then
+		if Nova_CheckLastCast(3, 0.5) then
+			return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Mind Freeze</Name><Default>false</Default><SpellID>47528</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Necrotic Strike</Name><Default>false</Default><SpellID>73975</SpellID><Actions></Actions><Lua>local NecroStrike = { UnitDebuff(PQR_CustomTarget, GetSpellInfo(73975), &amp;quot;PLAYER&amp;quot;) }
+
+if select(4, RuneCheck()) &amp;gt; 0
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+ 	if NecroStrike[1] then
+ 		if NecroStrike[15] &amp;gt;= 100000 then
+ 			if NecroStrike[7] - GetTime() &amp;lt;= 2 then
+ 				return true
+ 			else
+				return false
+			end
+		else
+			return true
+		end
+	else
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Leech</Name><Default>false</Default><SpellID>123693</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(123693) then
+	if PQ_ValidUnit
+	 and IsSpellInRange(GetSpellInfo(123693), PQR_CustomTarget) == 1 then
+	 	if UnitDebuff(PQR_CustomTarget, GetSpellInfo(55095)) 
+	 	 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(55078)) then
+	 	 	if PQR_SpellAvailable(77575) then	
+		 	 	if DepletedRune() &amp;gt;= 2 then
+		 	 		return true
+		 	 	end
+			end
+		end
+	elseif UnitExists(&amp;quot;focus&amp;quot;)
+	 and IsSpellInRange(GetSpellInfo(123693), &amp;quot;focus&amp;quot;) == 1 then
+	 	if UnitDebuff(&amp;quot;focus&amp;quot;, GetSpellInfo(55095)) 
+	 	 and UnitDebuff(&amp;quot;focus&amp;quot;, GetSpellInfo(55078)) then
+	 	 	if DepletedRune() &amp;gt;= 2 then
+	 	 		return true
+	 	 	end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Dark Transformation</Name><Default>false</Default><SpellID>63560</SpellID><Actions></Actions><Lua>local DT = { UnitBuffID(&amp;quot;player&amp;quot;, 91342) }
+if DT[1] then
+	if DT[4] &amp;gt;= 5 then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Anti-Magic Shell</Name><Default>false</Default><SpellID>48707</SpellID><Actions></Actions><Lua>return false</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Icebound Fortitude</Name><Default>false</Default><SpellID>48792</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Off)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(47541)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(47541), PQR_CustomTarget) == 1
+ and select(4, NUI(&amp;quot;player&amp;quot;)) &amp;gt;= 32 then
+ 	local DT = { UnitBuff(&amp;quot;pet&amp;quot;, GetSpellInfo(63560)) }
+ 	if DT[1] then
+ 		if DT[7] - GetTime() &amp;lt; 10 then
+ 			if select(4, NUI(&amp;quot;player&amp;quot;)) &amp;gt;= 100 then
+ 				return true
+ 			else
+ 				return false
+ 			end
+ 		else
+ 			return true
+ 		end
+ 	else
+ 		return true
+ 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Def)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>local Lichborne = { UnitBuff(&amp;quot;player&amp;quot;, GetSpellInfo(49039)) }
+
+if Lichborne[1] then
+	if select(4, NUI(&amp;quot;player&amp;quot;)) &amp;gt;= 32 and NUI(&amp;quot;player&amp;quot;) &amp;lt;= Nova_LichborneHeal then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Horn of Winter</Name><Default>false</Default><SpellID>57330</SpellID><Actions></Actions><Lua>if UnitAffectingCombat(&amp;quot;player&amp;quot;) then
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Empower Rune Weapon</Name><Default>false</Default><SpellID>47568</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(49206) 
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45524), PQR_CustomTarget) == 1 then
+	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
+	
+	if targetHealth &amp;lt;= Nova_EmpowerRuneWeapon and Nova_EmpowerRuneWeapon_Check then
+		local runeCheck = { RuneCheck() }
+		local total = 0
+		for i=1, #runeCheck do
+			total = runeCheck[i] + total
+		end
+		
+		if total &amp;lt; 2 then
+			return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Strangulate</Name><Default>false</Default><SpellID>47476</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable()
+ and UnitExists(&amp;quot;focus&amp;quot;)
+ and IsSpellInRange(GetSpellInfo(), &amp;quot;focus&amp;quot;) == 1 then
+ 	if GetCastingInfo(&amp;quot;focus&amp;quot;) then
+ 		return true
+ 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Summon Gargoyle</Name><Default>false</Default><SpellID>49206</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(49206) 
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45524), PQR_CustomTarget) == 1 then
+	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
+	
+	if targetHealth &amp;lt;= Nova_SummonGargoyle and Nova_SummonGargoyle_Check then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Unholy Frenzy</Name><Default>false</Default><SpellID>49016</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(49206) 
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45524), PQR_CustomTarget) == 1 then
+	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
+	
+	if targetHealth &amp;lt;= Nova_UnholyFrenzy and Nova_UnholyFrenzy_Check then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Tap</Name><Default>false</Default><SpellID>45529</SpellID><Actions></Actions><Lua>local bloodTap = { UnitBuff(&amp;quot;player&amp;quot;, GetSpellInfo(114851)) }
+if bloodTap[1] then
+	if bloodTap[4] &amp;gt;= 11 then
+		if DepletedRune() &amp;gt;= 1 then
+			if Nova_CheckLastCast(1, 0.5) then
+				return true
+			end
+		end
+	end
+end</Lua><RecastDelay>500</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Dark Simulacrum</Name><Default>false</Default><SpellID>77606</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Festering Strike (Dis)</Name><Default>false</Default><SpellID>85948</SpellID><Actions></Actions><Lua>local DiseaseList = {
+	55095, -- Frost Fever
+	55078, -- Blood Plague
+	45524, -- Chains of Ice
+}
+
+if PQR_SpellAvailable(85948)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	for i=1, #DiseaseList do
+		local diseaseCheck = { UnitDebuff(PQR_CustomTarget, GetSpellInfo(DiseaseList[i])) }
+		if diseaseCheck[1] then
+			if diseaseCheck[11] == 45524 then
+				if diseaseCheck[7] - GetTime() &amp;lt; 2 then
+					return true
+				end
+			else
+				if diseaseCheck[7] - GetTime() &amp;lt; 6 then
+					return true
+				end
+			end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Proc)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>local SD = { UnitBuff(&amp;quot;player&amp;quot;, GetSpellInfo(81340)) }
+local DT = { UnitBuff(&amp;quot;pet&amp;quot;, GetSpellInfo(91342)) }
+
+if PQR_SpellAvailable(47541)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(47541), PQR_CustomTarget) == 1 then
+	if SD[1] then
+		if DT[1] then
+			local DTleft = DT[7] - GetTime()
+			if DTleft &amp;lt; 5 and SD[7] - GetTime() - DTleft &amp;gt;= 2 then
+				return false
+			end
+		end
+		
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Necrotic Strike (LowHP)</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
+	if targetHealth &amp;lt;= 35 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(130736), &amp;quot;PLAYER&amp;quot;) then
+		if select(4, RuneCheck()) == 0 then			
+			local BT = { UnitBuff(&amp;quot;player&amp;quot;, GetSpellInfo(114851)) }
+			if BT[1] then
+				if BT[4] &amp;gt;= 5 then
+					CastSpellByName(GetSpellInfo(45529), &amp;quot;player&amp;quot;)
+					return true
+				end
+			end
+		else
+			CastSpellByName(GetSpellInfo(73975), PQR_CustomTarget)
+			return true
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Strike - Old</Name><Default>false</Default><SpellID>45462</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45462)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	local shGUID = string.sub(tostring(UnitGUID(&amp;quot;target&amp;quot;)), -5, -1)
+	if nDoTTargets[shGUID] then
+		if nDoTTargets[shGUID][55078] then
+			if nDoTTargets[shGUID][55078].dotDamage &amp;gt; 0 then
+				local nBloodPlague = CalcDoT(&amp;quot;shadow&amp;quot;)
+				if nBloodPlague &amp;gt; nDoTTargets[shGUID][55078].dotDamage then
+					if (math.abs(nBloodPlague-nDoTTargets[shGUID][55078].dotDamage)) / nBloodPlague &amp;gt;= .10 then
+						return true
+					end
+				end
+			elseif UnitAttackPower(&amp;quot;player&amp;quot;) &amp;gt; nDoTTargets[shGUID][55078].savedAP then
+				if (math.abs(UnitAttackPower(&amp;quot;player&amp;quot;) - nDoTTargets[shGUID][55078].savedAP)) / UnitAttackPower(&amp;quot;player&amp;quot;) &amp;gt;= .10 then
+					return true
+				end
+			end
+		else 
+			return true
+		end
+		if nDoTTargets[shGUID][55095] then
+			if nDoTTargets[shGUID][55095].dotDamage &amp;gt; 0 then
+				local nBloodPlague = CalcDoT()
+				if nBloodPlague &amp;gt; nDoTTargets[shGUID][55095].dotDamage then
+					if (math.abs(nBloodPlague-nDoTTargets[shGUID][55095].dotDamage)) / nBloodPlague &amp;gt;= .10 then
+						return true
+					end
+				end
+			elseif UnitAttackPower(&amp;quot;player&amp;quot;) &amp;gt; nDoTTargets[shGUID][55095].savedAP then
+				if (math.abs(UnitAttackPower(&amp;quot;player&amp;quot;) - nDoTTargets[shGUID][55095].savedAP)) / UnitAttackPower(&amp;quot;player&amp;quot;) &amp;gt;= .10 then
+					return true
+				end
+			end
+		else
+			return true
+		end
+	else
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Strike - PvE</Name><Default>false</Default><SpellID>45462</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45462)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	if nSmartDoT(55098) then
+		return true
+	elseif nSmartDoT(55078) then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Outbreak - PvE</Name><Default>false</Default><SpellID>77575</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(77575)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(77575), PQR_CustomTarget) == 1 then
+	if nSmartDoT(77575) then
+		return true
+	elseif nSmartDoT(77575) then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Click</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Asphyxiate</Name><Default>false</Default><SpellID>109194</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(108194)
+ and UnitExists(&amp;quot;focus&amp;quot;)
+ and IsSpellInRange(GetSpellInfo(108194), &amp;quot;focus&amp;quot;) == 1 then
+ 	if GetCastingInfo(&amp;quot;focus&amp;quot;) then
+ 		return true
+ 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Grip</Name><Default>false</Default><SpellID>49576</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(49576)
+ and Nova_ModDeathGrip
+ and Nova_ModDeathGrip_Check
+ and UnitExists(&amp;quot;mouseover&amp;quot;)
+ and UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;mouseover&amp;quot;)
+ and IsSpellInRange(GetSpellInfo(49576), &amp;quot;mouseover&amp;quot;) == 1 then
+ 	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Mouseover</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(48721)
+ and Nova_ModBloodBoil
+ and Nova_ModBloodBoil_Check
+ and PQ_ValidUnit then
+ 	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Strike</Name><Default>false</Default><SpellID>45902</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45902)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45902), PQR_CustomTarget) == 1 then
+ 	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Auto Focus Heal (Arena)</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>return false</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Pet)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>if UnitExists(&amp;quot;pet&amp;quot;)
+ and not UnitIsDead(&amp;quot;pet&amp;quot;) then
+	if select(4, NUI(&amp;quot;player&amp;quot;)) &amp;gt;= 32 
+	 and NUI(&amp;quot;pet&amp;quot;) &amp;lt;= Nova_LichborneHealPet 
+	 and IsSpellInRange(GetSpellInfo(47541), &amp;quot;pet&amp;quot;) == 1 then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Pet</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>

@@ -685,11 +685,16 @@ end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>Fal
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Healing Touch</Name><Default>false</Default><SpellID>5185</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(5185) 
  and not Nova_Moving  
  and Nova_HealingTouch_Check then
-	if ( UnitBuffID(&amp;apos;player&amp;apos;, 16870)
-	 or ( UnitBuffID(&amp;apos;player&amp;apos;, 144871) and select(4, UnitBuffID(&amp;apos;player&amp;apos;, 144871)) &amp;gt;= 5 )
+	if UnitBuffID(&amp;apos;player&amp;apos;, 16870)
 	 and members[1].HP &amp;lt; Nova_HealingTouchCC then
 	 	PQR_CustomTarget = members[1].Unit
 	 	return true
+	elseif UnitBuff(&amp;apos;player&amp;apos;, GetSpellInfo(144871)) then
+		if select(4, UnitBuff(&amp;apos;player&amp;apos;,GetSpellInfo(144871))) &amp;gt;= 5 
+		 and members[1].HP &amp;lt; Nova_HealingTouchCC then
+		 	PQR_CustomTarget = members[1].Unit
+		 	return true
+		end
 	elseif members[1].HP &amp;lt; Nova_HealingTouch then
 	 	PQR_CustomTarget = members[1].Unit
 	 	return true
