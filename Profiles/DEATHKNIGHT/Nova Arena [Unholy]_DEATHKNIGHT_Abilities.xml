@@ -8,7 +8,7 @@ if not nDoTTargets then
 		dotExpTime = 0,
 		savedAP = 0,
 	}
-	
+
 	local function cTarFinder(tarGUID)
 		local cTar = {&amp;quot;target&amp;quot;, &amp;quot;mouseover&amp;quot;, &amp;quot;focus&amp;quot; }
 		-- For Raid/Party Targets
@@ -32,7 +32,7 @@ if not nDoTTargets then
 				table.insert(cTar, &amp;quot;arenapet&amp;quot;..i)
 			end
 		end
-	
+
 		for i=1, #cTar do
 			if UnitExists(cTar[i]) then
 				if UnitGUID(cTar[i]) == tarGUID then
@@ -40,10 +40,10 @@ if not nDoTTargets then
 				end
 			end
 		end
-	
+
 		return nil
 	end
-	
+
 	nDotReader = CreateFrame( &amp;quot;GameTooltip&amp;quot;, &amp;quot;nDotTT&amp;quot;, nil, &amp;quot;GameTooltipTemplate&amp;quot; ); --Tooltip name cannot be nil
 	nDotReader:SetOwner( WorldFrame, &amp;quot;ANCHOR_NONE&amp;quot; );
 	-- Allow tooltip SetX() methods to dynamically add new lines based on these
@@ -67,37 +67,37 @@ if not nDoTTargets then
 			end
 			i=i+1
 		end
-	
+
 		return 0, 0
 	end
-	
+
 	-- DoT Tracker
 	nDoTTracker = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;nDoTTracker&amp;quot;)
 	nDoTTracker:RegisterEvent(&amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot;)
 	nDoTTracker:RegisterEvent(&amp;quot;PLAYER_REGEN_ENABLED&amp;quot;)
-	nDoTTracker:SetScript(&amp;quot;OnEvent&amp;quot;, function(event, _, ...)
+	nDoTTracker:SetScript(&amp;quot;OnEvent&amp;quot;, function(_, event, ...)
 		local arg = {...}
 		if event == &amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot; then
 			if arg[4] == UnitGUID(&amp;quot;player&amp;quot;) then
-		
+
 				-- This is for when we first apply the Debuff to the Target
-		
+
 				if arg[2] == &amp;quot;SPELL_AURA_APPLIED&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_APPLIED&amp;quot; then
 					if arg[12] == 55095 or arg[12] == 55078 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
 						local cTar = cTarFinder(arg[8])
 						if cTar then
 							local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end --setmetatable(nDoTTargets[shGUID][tostring(arg[12])], nMetaTable) end
-							nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end --setmetatable(nDoTTargets[shGUID][tostring(arg[12])], nMetaTable) end
+							nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 						else
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end
-							nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8]}
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
+							nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)}
 						end
 					end
-		
-				-- This is for when the Debuff is Removed from the Target
-		
+
+					-- This is for when the Debuff is Removed from the Target
+
 				elseif arg[2] == &amp;quot;SPELL_AURA_REMOVED&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REMOVED&amp;quot; then
 					if arg[12] == 55095 or arg[12] == 55078 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
@@ -105,9 +105,9 @@ if not nDoTTargets then
 							nDoTTargets[shGUID][arg[12]] = nil
 						end
 					end
-		
-				-- This is for when we change targets and on a Tick, it will refresh the dotDamage is it wasn&amp;apos;t there before
-					
+
+					-- This is for when we change targets and on a Tick, it will refresh the dotDamage is it wasn&amp;apos;t there before
+
 				elseif arg[2] == &amp;quot;SPELL_AURA_DAMAGE&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_DAMAGE&amp;quot; then
 					if arg[12] == 55095 or arg[12] == 55078 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
@@ -117,32 +117,32 @@ if not nDoTTargets then
 									local cTar = cTarFinder(arg[8])
 									if cTar then
 										local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-										nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = nDoTTargets[shGUID][arg[12]].savedAP, guid = arg[8] }
+										nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = nDoTTargets[shGUID][arg[12]].savedAP  }
 									end
 								end
 							else
 								local cTar = cTarFinder(arg[8])
 								if cTar then
 									local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-									nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+									nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
 								else
-									nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+									nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
 								end
 							end
 						else
 							local cTar = cTarFinder(arg[8])
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
 							if cTar then
 								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							else
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8]}
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							end
 						end
 					end
-		
+
 					-- This is for when we Reapply the Debuff to the Target (before it is removed)
-		
+
 				elseif arg[2] == &amp;quot;SPELL_AURA_REFRESH&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REFRESH&amp;quot; then
 					if arg[12] == 55095 or arg[12] == 55078 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
@@ -150,18 +150,18 @@ if not nDoTTargets then
 							local cTar = cTarFinder(arg[8])
 							if cTar then
 								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							else
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							end
 						else
 							local cTar = cTarFinder(arg[8])
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = {} end
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
 							if cTar then
 								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8] }
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							else
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;), guid = arg[8]}
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							end
 						end
 					end
@@ -240,6 +240,13 @@ if not PQR_UHDKLoaded then
 	PQR_UHDKLoaded = true
 	PQR_WriteToChat(&amp;quot;|cff99CCFFNova - |cffc5bfb3Unholy |cffC41F3BDeath Knight|cff99CCFF Rotation is |cffFFCCFFLoaded!|cffffffff&amp;quot;)
 end
+
+
+-------------------------------------------------
+-- Start of Run Once
+-------------------------------------------------
+
+
 
 -- Variables
 PQR_ResetMovementTime = 0.3
@@ -520,6 +527,14 @@ function NoImmunity(tar)
 	return true
 end
 
+nUnitFacing = false
+
+
+
+--------------------------------------------------
+-- End of Run Once
+--------------------------------------------------
+
 if not EnterBGTimer then EnterBGTimer = 0; AlreadyJoined = false end
 local acceptQueue=GetBattlefieldStatus(1)
 if acceptQueue == &amp;quot;confirm&amp;quot; and not AlreadyJoined and Nova_EnterBGWaitTime_Check then
@@ -542,6 +557,7 @@ if UnitExists(&amp;quot;target&amp;quot;)
 	and not PQR_IsOutOfSight(&amp;quot;target&amp;quot;) and NoImmunity(&amp;quot;target&amp;quot;)
 then
 	PQ_ValidUnit = true
+	nUnitFacing = PQR_UnitFacing(&amp;quot;player&amp;quot;, &amp;quot;target&amp;quot;)
 	PQR_CustomTarget = &amp;quot;target&amp;quot;
 end
 
@@ -644,11 +660,14 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 		end
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Dark Transformation</Name><Default>false</Default><SpellID>63560</SpellID><Actions></Actions><Lua>local DT = { UnitBuffID(&amp;quot;player&amp;quot;, 91342) }
-if DT[1] then
-	if DT[4] &amp;gt;= 5 then
-		return true
+if UnitExists(&amp;quot;pet&amp;quot;)
+ and not UnitIsDead(&amp;quot;pet&amp;quot;) then
+	if DT[1] then
+		if DT[4] &amp;gt;= 5 then
+			return true
+		end
 	end
-end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Anti-Magic Shell</Name><Default>false</Default><SpellID>48707</SpellID><Actions></Actions><Lua>return false</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Icebound Fortitude</Name><Default>false</Default><SpellID>48792</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Off)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(47541)
+end</Lua><RecastDelay>0</RecastDelay><Target>Pet</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Anti-Magic Shell</Name><Default>false</Default><SpellID>48707</SpellID><Actions></Actions><Lua>return false</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Icebound Fortitude</Name><Default>false</Default><SpellID>48792</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Off)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(47541)
  and PQ_ValidUnit
  and IsSpellInRange(GetSpellInfo(47541), PQR_CustomTarget) == 1
  and select(4, NUI(&amp;quot;player&amp;quot;)) &amp;gt;= 32 then
@@ -849,9 +868,10 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 end</Lua><RecastDelay>0</RecastDelay><Target>Mouseover</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(48721)
  and Nova_ModBloodBoil
  and Nova_ModBloodBoil_Check
+ and not GetCurrentKeyBoardFocus()
  and PQ_ValidUnit then
  	return true
-end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Strike</Name><Default>false</Default><SpellID>45902</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45902)
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Strike</Name><Default>false</Default><SpellID>45902</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45902)
  and PQ_ValidUnit
  and IsSpellInRange(GetSpellInfo(45902), PQR_CustomTarget) == 1 then
  	return true
@@ -862,4 +882,329 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 	 and IsSpellInRange(GetSpellInfo(47541), &amp;quot;pet&amp;quot;) == 1 then
 		return true
 	end
-end</Lua><RecastDelay>0</RecastDelay><Target>Pet</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
+end</Lua><RecastDelay>0</RecastDelay><Target>Pet</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Festering Strike - Old</Name><Default>false</Default><SpellID>85948</SpellID><Actions></Actions><Lua>local drCD, drCheck = { DeathRuneCD() }, { DeathRuneCheck() }
+
+if PQR_SpellAvailable(85948)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+	if drCD[2] &amp;lt; 2 then
+		return true
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Spell Queue --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>-- I am going to create a simple frame that will accept either SPELL ID input, or SPELL NAME input...
+-- I will try and distinguish which is being requested by simple string verifications..
+-- Spell ID will be simple in adding to the Queue system
+-- Spell Name will be slightly more complex.. Possible ideas on how to compare Spell Name against possible Spell choices
+---- We can use a predetermined table of Spell ID&amp;apos;s to accept as Spell Name inputs
+---- We can scan the entire SpellBook before we even begin and see what spells we know (Run check whenever Spec or Level changes)
+---- Still thinking about other methods
+-- I may include a Scroll Frame which will display the last X number or Queued Casts and if they were successful or not
+if not Nova_Queue_Setup then
+local function Event_Reader()
+
+	local function OnEventFunc(self, event, ...)
+		if event == &amp;quot;PLAYER_LEVEL_UP&amp;quot; or event == &amp;quot;PLAYER_TALENT_UPDATE&amp;quot; then
+			Nova_SpellBookCache = { }
+			local _, _, tabOffset, numEntries = GetSpellTabInfo(2) -- The Spell Tab 1 = General Spells, 2 = Current Spec spells
+			for i=tabOffset + 1, tabOffset + numEntries do
+				local spellName, spellSubName = GetSpellBookItemName(i, &amp;quot;spell&amp;quot;)
+				local spell = GetSpellLink(spellName)
+				if ( not spellSubName or not string.match(spellSubName, &amp;quot;Passive&amp;quot;) )
+				 and spell then
+					local SpellNameFinal = string.lower(gsub(spellName, &amp;quot;[%s%d%p]&amp;quot;, &amp;quot;&amp;quot;))
+					local string1 = gsub(spell, &amp;quot;[%a%|%s%[%]]+&amp;quot;, &amp;quot;&amp;quot;)
+					local spellIDfromString = tonumber(string.match(string1, &amp;quot;%p(%d+)&amp;quot;))
+					table.insert(Nova_SpellBookCache, { name = SpellNameFinal, id = spellIDfromString } )
+				end
+			end	
+		elseif #Nova_SpellQueueTable &amp;gt; 0 and event == &amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot; then
+			if (select(2, ...) == &amp;quot;SPELL_CAST_SUCCESS&amp;quot;
+				or select(2, ...) == &amp;quot;SPELL_CAST_START&amp;quot; )
+			 and select(4, ...) == UnitGUID(&amp;quot;player&amp;quot;) then			 	
+			 	for loop = 1, #Nova_SpellQueueTable do
+			 		if Nova_SpellQueueTable[loop].id == select(12, ...) then
+			 			table.remove(Nova_SpellQueueTable, loop)
+			 			print(&amp;quot;|cff00F0F0Successfully cast|cffFF0000&amp;quot;,select(13, ...),&amp;quot;|cff00F0F0!&amp;quot;)
+			 			break
+			 		end
+			 	end
+			end
+		end
+	end
+
+
+	local eventReader = CreateFrame(&amp;quot;frame&amp;quot;, nil)
+	eventReader:RegisterEvent(&amp;quot;PLAYER_LEVEL_UP&amp;quot;)
+	eventReader:RegisterEvent(&amp;quot;PLAYER_TALENT_UPDATE&amp;quot;)
+	eventReader:RegisterEvent(&amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot;)
+	eventReader:SetScript(&amp;quot;OnEvent&amp;quot;, OnEventFunc)
+
+end
+
+function CheckForValidSpell(string)
+	-- We need to figure out if we&amp;apos;re dealing with a SpellID or a Spell Name
+	local SpellIDCheck = gsub(string, &amp;quot;[%a%p%s]&amp;quot;, &amp;quot;&amp;quot;)
+	local SpellNameCheck = string.lower(gsub(string, &amp;quot;[%s%d%p]&amp;quot;, &amp;quot;&amp;quot;))
+	
+	if type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;number&amp;quot; or type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;string&amp;quot; then
+		SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, 0)
+	end
+	
+	-- First We&amp;apos;ll check the Spell ID as it is a quicker check, and return true if we successfully add
+	if string.len(SpellIDCheck) &amp;gt; 0 then
+		local SpellID = tonumber(SpellIDCheck)
+		for t=1, #Nova_SpellBookCache do
+			if SpellID == Nova_SpellBookCache[t].id then
+				if #Nova_SpellQueueTable &amp;gt; 0 then
+					for j=1, #Nova_SpellQueueTable do
+						if Nova_SpellBookCache[t].id == Nova_SpellQueueTable[j].id then
+							print(&amp;quot;|cff00F0F0Removing|cffFF0000&amp;quot;, GetSpellInfo(Nova_SpellQueueTable[j].id), &amp;quot;|cff00F0F0from the Spell Queue before it was cast!&amp;quot;)
+							table.remove(Nova_SpellQueueTable, j)
+							return false
+						end
+					end
+				end
+				table.insert(Nova_SpellQueueTable, { name = Nova_SpellBookCache[t].name, id = Nova_SpellBookCache[t].id })
+				NovaSpellQueueHistory(Nova_SpellBookCache[t].id)
+				print(&amp;quot;|cff00F0F0Successfully added |cffFF0000&amp;quot;..GetSpellInfo(Nova_SpellBookCache[t].id)..&amp;quot;|cff00F0F0 to the Spell Queue&amp;quot;)
+				return 
+			end
+		end
+	end
+
+	-- If we had a string that appeared to be an ID we&amp;apos;ll check that first, if nothign returns true, we
+	-- will then check the Spell Name and if that is a true Spell
+	if string.len(SpellNameCheck) &amp;gt; 0 then
+		for k=1, #Nova_SpellBookCache do
+			if SpellNameCheck == Nova_SpellBookCache[k].name then
+				if #Nova_SpellQueueTable &amp;gt; 0 then
+					for j=1, #Nova_SpellQueueTable do
+						if Nova_SpellBookCache[k].id == Nova_SpellQueueTable[j].id then	
+							print(&amp;quot;|cff00F0F0Removing|cffFF0000&amp;quot;, GetSpellInfo(Nova_SpellQueueTable[j].id), &amp;quot;|cff00F0F0from the Spell Queue before it was cast!&amp;quot;)
+							table.remove(Nova_SpellQueueTable, j)
+							return false
+						end
+					end
+				end
+				table.insert(Nova_SpellQueueTable, { name = Nova_SpellBookCache[k].name, id = Nova_SpellBookCache[k].id })
+				NovaSpellQueueHistory(Nova_SpellBookCache[k].id)
+				print(&amp;quot;|cff00F0F0Successfully added |cffFF0000&amp;quot;..GetSpellInfo(Nova_SpellBookCache[k].id)..&amp;quot;|cff00F0F0 to the Spell Queue&amp;quot;)
+				return 
+			end
+		end
+	else return false
+	end
+	
+	print(&amp;quot;|cffFF00FFThere wasn&amp;apos;t a Spell to go along with what your input&amp;quot;)
+	return false
+end
+
+
+function NovaSpellQueueHistory(spellID)
+	local buttonID = spellID
+	local buttonName = GetSpellInfo(buttonID)
+	local AlreadyInHistory = false
+	-- We are seeing if it&amp;apos;s already in the Spell Queue History or not
+	-- If not, we will create a new button if 6 don&amp;apos;t exists already
+	-- Or we will overwrite the oldest Spell in the History
+	for h=1, #Nova_SpellQueueHistory do
+		if buttonID == Nova_SpellQueueHistory[h].id then
+			table.sort(Nova_SpellQueueHistory, function(x) return x.id == spellID end)
+			AlreadyInHistory = true
+		end
+	end
+	if not AlreadyInHistory then
+		if #Nova_SpellQueueHistory &amp;lt;= 5 then
+				local spellButton = CreateFrame(&amp;quot;button&amp;quot;, &amp;quot;SpellQueueSystemButton&amp;quot;..tostring(#Nova_SpellQueueHistory + 1), SpellQueueSystemContent, &amp;quot;UIPanelButtonTemplate&amp;quot;)
+				spellButton:SetSize(110, 20)
+				spellButton:SetScript(&amp;quot;OnClick&amp;quot;, function(self) 
+					SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, self:GetText())
+				end)
+				table.insert(Nova_SpellQueueHistory, 1, {name=buttonName, id=buttonID, button=spellButton}) 
+		elseif #Nova_SpellQueueHistory == 6 then
+				Nova_SpellQueueHistory[6].id = buttonID
+				Nova_SpellQueueHistory[6].name = buttonName
+				table.sort(Nova_SpellQueueHistory, function(x) return x.id == spellID end)
+		end
+	end
+	
+	local startPointX, startPointY = 10, 5
+	for i=1, #Nova_SpellQueueHistory do
+		local ButtonSetting = Nova_SpellQueueHistory[i].button
+		ButtonSetting:SetText(Nova_SpellQueueHistory[i].name)
+		ButtonSetting:ClearAllPoints()
+		if i &amp;lt;= 3 then
+			ButtonSetting:SetPoint(&amp;quot;TOPLEFT&amp;quot;, SpellQueueSystemContent, &amp;quot;TOPLEFT&amp;quot;, startPointX, - (startPointY + (24 * (i-1))))
+		else
+			ButtonSetting:SetPoint(&amp;quot;TOPRIGHT&amp;quot;, SpellQueueSystemContent, &amp;quot;TOPRIGHT&amp;quot;, - startPointX , - (startPointY + (24 * (i-4))))
+		end
+	end
+end
+
+function Nova_Queue_Setup()
+	if GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;) == nil then RegisterCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;) end
+	Nova_SpellBookCache = { }
+	Nova_SpellQueueTable = { }
+	Nova_SpellQueueHistory = { }
+	local _, _, tabOffset, numEntries = GetSpellTabInfo(2) -- The Spell Tab 1 = General Spells, 2 = Current Spec spells
+	for i=tabOffset + 1, tabOffset + numEntries do
+		local spellName, spellSubName = GetSpellBookItemName(i, &amp;quot;spell&amp;quot;)
+		local spell = GetSpellLink(spellName)
+		if ( not spellSubName or not string.match(spellSubName, &amp;quot;Passive&amp;quot;) )
+		 and spell then
+			local SpellNameFinal = string.lower(gsub(spellName, &amp;quot;[%s%d%p]&amp;quot;, &amp;quot;&amp;quot;))
+			local string1 = gsub(spell, &amp;quot;[%a%|%s%[%]]+&amp;quot;, &amp;quot;&amp;quot;)
+			local spellIDfromString = tonumber(string.match(string1, &amp;quot;%p(%d+)&amp;quot;))
+			table.insert(Nova_SpellBookCache, { name = SpellNameFinal, id = spellIDfromString } )
+		end
+	end	
+
+	-- Title
+	local frameTitle = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;SpellQueueSystemTitle&amp;quot;, UIParent)
+	frameTitle:ClearAllPoints()
+	frameTitle:SetSize(120, 27)	
+	frameTitle:SetMovable(true)
+	frameTitle:EnableMouse(true)
+	frameTitle:RegisterForDrag(&amp;quot;LeftButton&amp;quot;)
+	frameTitle:SetScript(&amp;quot;OnDragStart&amp;quot;, frameTitle.StartMoving)
+	frameTitle:SetScript(&amp;quot;OnDragStop&amp;quot;, frameTitle.StopMovingOrSizing)
+	frameTitle:SetScript(&amp;quot;OnShow&amp;quot;, RefreshFrameBoxes)
+	local TitleString = frameTitle:CreateFontString(&amp;quot;TitleString&amp;quot;)
+	TitleString:SetFontObject(&amp;quot;GameTooltipText&amp;quot;)
+	TitleString:SetText(&amp;quot;Spell Queue System&amp;quot;)
+	TitleString:SetJustifyH(&amp;quot;CENTER&amp;quot;)
+	TitleString:SetJustifyV(&amp;quot;CENTER&amp;quot;)
+	TitleString:ClearAllPoints()
+	TitleString:SetPoint(&amp;quot;TOPLEFT&amp;quot;, SpellQueueSystemTitle, &amp;quot;TOPLEFT&amp;quot;)
+	TitleString:SetPoint(&amp;quot;BOTTOMRIGHT&amp;quot;, SpellQueueSystemTitle, &amp;quot;BOTTOMRIGHT&amp;quot;)
+	frameTitle:SetBackdrop({bgFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Background&amp;quot;, 
+																edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+																tile = true, tileSize = 16, edgeSize = 16, 
+																insets = { left = 4, right = 4, top = 4, bottom = 4 }});
+	frameTitle:SetBackdropColor(0,0,0,1);
+	frameTitle:SetPoint(&amp;quot;CENTER&amp;quot;, -300, 100)
+	frameTitle:Hide()
+	
+	
+	-- Main Frame that we shall link everything to
+	local frameMain = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;SpellQueueSystem&amp;quot;, SpellQueueSystemTitle)
+	frameMain:ClearAllPoints()
+	frameMain:SetSize(260, 115)
+	frameMain:SetBackdrop({bgFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Background&amp;quot;, 
+																edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+																tile = true, tileSize = 16, edgeSize = 16, 
+																insets = { left = 4, right = 4, top = 4, bottom = 4 }});
+	frameMain:SetBackdropColor(0,0,0,1);
+	frameMain:SetPoint(&amp;quot;TOP&amp;quot;, SpellQueueSystemTitle, &amp;quot;BOTTOM&amp;quot;, 0, -2)
+	frameMain:Show()
+
+
+
+
+	-- Close/Hide Button
+	local frameClose = CreateFrame(&amp;apos;Button&amp;apos;, &amp;apos;SpellQueueSystemClose&amp;apos;, frameMain)
+	frameClose:ClearAllPoints()
+	frameClose:SetPoint(&amp;quot;BOTTOMRIGHT&amp;quot;, frameMain, &amp;quot;TOPRIGHT&amp;quot;, 0, 4)
+	frameClose:RegisterForClicks(&amp;quot;LeftButtonDown&amp;quot;)
+	frameClose:SetSize(20, 20)
+	local closeText = frameClose:CreateFontString(&amp;quot;closeText&amp;quot;)
+	closeText:SetFontObject(&amp;quot;GameTooltipTextSmall&amp;quot;)
+	closeText:SetText(&amp;quot;|cFFFFFAFA X|cffffffff&amp;quot;)
+	closeText:ClearAllPoints()
+	closeText:SetAllPoints(frameClose)
+	closeText:SetJustifyH(&amp;quot;CENTER&amp;quot;)
+	closeText:SetJustifyV(&amp;quot;CENTER&amp;quot;)
+	frameClose:SetScript(&amp;apos;OnClick&amp;apos;, function() frameTitle:Hide() end )
+	frameClose:SetBackdrop({ 
+									edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+									tile = false, tileSize = 12, edgeSize = 12, 
+									insets = { left = 6, right = 6, top = 6, bottom = 6 }
+									})
+	frameClose:Show()
+	
+	-- Content Frame
+	local frameContent = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;SpellQueueSystemContent&amp;quot;, frameMain)
+	frameContent:ClearAllPoints()
+	frameContent:SetPoint(&amp;quot;TOPLEFT&amp;quot;, frameMain, &amp;quot;TOPLEFT&amp;quot;, 5, -28)
+	frameContent:SetPoint(&amp;quot;BOTTOMRIGHT&amp;quot;, frameMain, &amp;quot;BOTTOMRIGHT&amp;quot;, -5, 5)
+	frameContent:SetBackdrop({bgFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Background&amp;quot;, 
+																edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+																tile = true, tileSize = 8, edgeSize = 8, 
+																insets = { left = 4, right = 4, top = 4, bottom = 4 }});
+	frameContent:SetBackdropColor(0,0,0,1);
+	
+	-- EditBox
+	local frameEditbox = CreateFrame(&amp;quot;Editbox&amp;quot;, &amp;quot;SpellQueueSystemEditbox&amp;quot;, frameMain, &amp;quot;InputBoxTemplate&amp;quot;)
+	frameEditbox:SetSize(180, 18)
+	frameEditbox:ClearAllPoints()
+	frameEditbox:SetAutoFocus(false)
+	frameEditbox:ClearFocus()
+	frameEditbox:SetPoint(&amp;quot;BOTTOMLEFT&amp;quot;, frameContent, &amp;quot;TOPLEFT&amp;quot;, 8, 4)
+	frameEditbox:SetScript(&amp;quot;OnEnterPressed&amp;quot;, function(self) 
+		SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, self:GetText())
+		self:SetText(&amp;quot;&amp;quot;)
+		self:ClearFocus() 
+	end)
+	frameEditbox:SetScript(&amp;quot;OnEscapePressed&amp;quot;, function(self) self:SetText(&amp;quot;&amp;quot;); self:ClearFocus() end)
+
+	-- Accept Button
+	local frameAccept = CreateFrame(&amp;quot;Button&amp;quot;, &amp;quot;SpellQueueSystemAccept&amp;quot;, frameEditbox, &amp;quot;UIPanelButtonTemplate&amp;quot;)
+	frameAccept:SetBackdrop({edgeFile = &amp;quot;Interface/Tooltips/UI-Tooltip-Border&amp;quot;, 
+							tile = true, tileSize = 8, edgeSize = 8, 
+							insets = { left = 4, right = 4, top = 4, bottom = 4 }});
+	frameAccept:SetBackdropBorderColor(1,1,1,1);
+	frameAccept:SetNormalFontObject(&amp;quot;GameTooltipText&amp;quot;)
+	frameAccept:SetText(&amp;quot;Accept&amp;quot;)
+	frameAccept:SetSize(60, 18)
+	frameAccept:SetPoint(&amp;quot;BOTTOMRIGHT&amp;quot;, frameContent, &amp;quot;TOPRIGHT&amp;quot;, 0, 4)
+	frameAccept:SetScript(&amp;quot;OnClick&amp;quot;, function() 
+		SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, frameEditbox:GetText())
+		frameEditbox:SetText(&amp;quot;&amp;quot;)
+		frameEditbox:ClearFocus() 
+	end)
+
+	Event_Reader()
+	
+
+
+end
+end
+
+SLASH_NOVASPELLQUEUE1 = &amp;quot;/novaspell&amp;quot;
+function SlashCmdList.NOVASPELLQUEUE(spellText, editbox)
+	if spellText ~= &amp;quot;firstrun&amp;quot; then
+		if issecure() then
+			SetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;, spellText)
+		else
+			print(&amp;quot;Not Secure to use the Slash Commands, use Frame from now on, until you can /console reloadui&amp;quot;)
+		end
+	end
+end
+
+if not Setup then
+	Nova_Queue_Setup()
+	
+	SLASH_NOVASPELLFRAME1 = &amp;quot;/nsq&amp;quot;
+	function SlashCmdList.NOVASPELLFRAME(spellText, editbox)
+		if not _G.SpellQueueSystemTitle:IsVisible() then
+			_G.SpellQueueSystemTitle:Show()
+		else
+			_G.SpellQueueSystemTitle:Hide()
+		end
+	end
+	
+	RunMacroText(&amp;quot;/novaspell firstrun&amp;quot;)
+	Setup = true
+end
+
+if type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;string&amp;quot; or type(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;)) == &amp;quot;number&amp;quot; then
+	CheckForValidSpell(GetCVar(&amp;apos;Nova_CheckForValidSpell&amp;apos;))
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Spell Queue Cast --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if #Nova_SpellQueueTable &amp;gt; 0 then
+	for i=1, #Nova_SpellQueueTable do
+		spell = Nova_SpellQueueTable[i].id
+		if select(2, GetSpellCooldown(spell)) == 0 
+		 or ( ( GetSpellCooldown(spell) + select(2, GetSpellCooldown(spell)) - GetTime() ) &amp;lt; 0.5 ) then
+			SpellCancelQueuedSpell() -- Blizzard Function, not related to my Frame
+			CastSpellByName(GetSpellInfo(spell))
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
