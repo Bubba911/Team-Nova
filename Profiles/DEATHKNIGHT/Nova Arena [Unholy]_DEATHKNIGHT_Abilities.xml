@@ -6,7 +6,6 @@ if not nDoTTargets then
 	nMetaTable = {
 		dotDamage = 0,
 		dotExpTime = 0,
-		savedAP = 0,
 	}
 
 	local function cTarFinder(tarGUID)
@@ -15,13 +14,13 @@ if not nDoTTargets then
 		if IsInRaid() then
 			i = 1
 			while UnitExists(&amp;quot;raid&amp;quot;..i) do
-				table.insert(cTar, &amp;quot;raid&amp;quot;..i)
+				table.insert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;target&amp;quot;)
 				i=i+1
 			end
 		elseif IsInGroup() then
 			i=1
 			while UnitExists(&amp;quot;party&amp;quot;..i) do
-				table.insert(cTar, &amp;quot;party&amp;quot;..i)
+				table.insert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;target&amp;quot;)
 				i=i+1
 			end
 		end
@@ -43,6 +42,40 @@ if not nDoTTargets then
 
 		return nil
 	end
+
+	local function Repopulate_Tracker(tab)
+		local cTar = {&amp;quot;target&amp;quot;, &amp;quot;mouseover&amp;quot;, &amp;quot;focus&amp;quot; }
+		-- For Raid/Party Targets
+		if IsInRaid() then
+			i = 1
+			while UnitExists(&amp;quot;raid&amp;quot;..i) do
+				table.insert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;target&amp;quot;)
+				i=i+1
+			end
+		elseif IsInGroup() then
+			i=1
+			while UnitExists(&amp;quot;party&amp;quot;..i) do
+				table.insert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;target&amp;quot;)
+				i=i+1
+			end
+		end
+		-- For Arena Targets
+		if IsInInstance() and IsActiveBattlefieldArena() then
+			for i=1, 5 do
+				table.insert(cTar, &amp;quot;arena&amp;quot;..i)
+				table.insert(cTar, &amp;quot;arenapet&amp;quot;..i)
+			end
+		end
+
+		for i=1, #cTar do
+			if UnitExists(cTar[i]) then
+				local tarGUID = Nova_GUID(cTar[i])
+				local shGUID = string.sub(tostring(UnitGUID(cTar[i])), -5, -1)
+				nDoTTargets[shGUID] = { guid = tarGUID }
+			end
+		end
+	end
+
 
 	nDotReader = CreateFrame( &amp;quot;GameTooltip&amp;quot;, &amp;quot;nDotTT&amp;quot;, nil, &amp;quot;GameTooltipTemplate&amp;quot; ); --Tooltip name cannot be nil
 	nDotReader:SetOwner( WorldFrame, &amp;quot;ANCHOR_NONE&amp;quot; );
@@ -169,6 +202,7 @@ if not nDoTTargets then
 			end
 		elseif event == &amp;quot;PLAYER_REGEN_ENABLED&amp;quot; then
 			table.wipe(nDoTTargets)
+			Repopulate_Tracker(nDoTTargets)
 		end
 	end)
 end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Debuff Handling</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local FF,_,_,_,_,_,FFtimer = UnitDebuffID(PQR_CustomTarget,55095,&amp;quot;player&amp;quot;)
@@ -268,7 +302,7 @@ if not PQI_Setup_Unholy then
 				step = 1,
 				},
 			},
-			{name = &amp;apos;Lichborne Heal Pet&amp;apos;,
+			{name = &amp;apos;Deathcoil Heal Pet&amp;apos;,
 			enable = true,
 			widget = {
 				type = &amp;apos;numbox&amp;apos;,
@@ -571,6 +605,7 @@ if not PQI_Setup_Variables(PQI_Unholy_DK, &amp;quot;Nova&amp;quot;)
  	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Strike</Name><Default>false</Default><SpellID>45462</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45462)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	if nDoT(55078) then
 		if Nova_CheckLastCast(3, 0.5) then
@@ -581,6 +616,7 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 
 if PQR_SpellAvailable(85948)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	if drCD[2] &amp;lt; 2 then
 		return true
@@ -588,6 +624,7 @@ if PQR_SpellAvailable(85948)
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Chains of Ice</Name><Default>false</Default><SpellID>45524</SpellID><Actions></Actions><Lua>local chains = { UnitDebuffID(&amp;quot;target&amp;quot;, 45524) }
 if PQR_SpellAvailable(45524)
  and PQ_ValidUnit
+ and nUnitFacing
  and not chains[1]
  and IsSpellInRange(GetSpellInfo(45524), PQR_CustomTarget) == 1
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 0
@@ -595,11 +632,13 @@ if PQR_SpellAvailable(45524)
 	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Scourge Strike</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if ( select(2, RuneCheck()) &amp;gt; 0 or select(4, RuneCheck()) &amp;gt; 0 )
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	CastSpellByName(GetSpellInfo(55090), PQR_CustomTarget)
 	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Strike</Name><Default>false</Default><SpellID>49998</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Soul Reaper</Name><Default>false</Default><SpellID>130736</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(130736)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(130736), PQR_CustomTarget) == 1 then 	
 	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
 	if targetHealth &amp;lt;= 30 then
@@ -611,6 +650,7 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Outbreak</Name><Default>false</Default><SpellID>77575</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(77575)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(77575), PQR_CustomTarget) == 1 then
 	if nDoT(55095) then
 		if Nova_CheckLastCast(3, 0.5) then
@@ -625,6 +665,7 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 
 if select(4, RuneCheck()) &amp;gt; 0
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
  	if NecroStrike[1] then
  		if NecroStrike[15] &amp;gt;= 100000 then
@@ -669,6 +710,7 @@ if UnitExists(&amp;quot;pet&amp;quot;)
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Pet</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Anti-Magic Shell</Name><Default>false</Default><SpellID>48707</SpellID><Actions></Actions><Lua>return false</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Icebound Fortitude</Name><Default>false</Default><SpellID>48792</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Off)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(47541)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(47541), PQR_CustomTarget) == 1
  and select(4, NUI(&amp;quot;player&amp;quot;)) &amp;gt;= 32 then
  	local DT = { UnitBuff(&amp;quot;pet&amp;quot;, GetSpellInfo(63560)) }
@@ -780,6 +822,7 @@ if PQR_SpellAvailable(47541)
 		return true
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Necrotic Strike (LowHP)</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
 	if targetHealth &amp;lt;= 35 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(130736), &amp;quot;PLAYER&amp;quot;) then
@@ -838,6 +881,7 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Strike - PvE</Name><Default>false</Default><SpellID>45462</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45462)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	if nSmartDoT(55098) then
 		return true
@@ -846,6 +890,7 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Outbreak - PvE</Name><Default>false</Default><SpellID>77575</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(77575)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(77575), PQR_CustomTarget) == 1 then
 	if nSmartDoT(77575) then
 		return true
@@ -873,12 +918,13 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Mouseover</Target><CancelChannel>Fa
  	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Strike</Name><Default>false</Default><SpellID>45902</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45902)
  and PQ_ValidUnit
+ and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45902), PQR_CustomTarget) == 1 then
  	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Auto Focus Heal (Arena)</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>return false</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Death Coil (Pet)</Name><Default>false</Default><SpellID>47541</SpellID><Actions></Actions><Lua>if UnitExists(&amp;quot;pet&amp;quot;)
  and not UnitIsDead(&amp;quot;pet&amp;quot;) then
 	if select(4, NUI(&amp;quot;player&amp;quot;)) &amp;gt;= 32 
-	 and NUI(&amp;quot;pet&amp;quot;) &amp;lt;= Nova_LichborneHealPet 
+	 and NUI(&amp;quot;pet&amp;quot;) &amp;lt;= Nova_DeathcoilHealPet 
 	 and IsSpellInRange(GetSpellInfo(47541), &amp;quot;pet&amp;quot;) == 1 then
 		return true
 	end
