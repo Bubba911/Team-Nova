@@ -353,9 +353,9 @@ if not PQI_Setup_Unholy then
 			tooltip = &amp;quot;Death grip mouseover target&amp;quot;,
 			hotkeys = {&amp;apos;lc&amp;apos;},
 			},
-			{name = &amp;apos;BurnSwitch&amp;apos;,
+			{name = &amp;apos;Burn Switch&amp;apos;,
 			enable = true,
-			tooltip = &amp;quot;Not yet implemented&amp;quot;,
+			tooltip = &amp;quot;Hold to use CDs&amp;quot;,
 			hotkeys = {&amp;apos;rs&amp;apos;},
 			},
 		}
@@ -834,24 +834,15 @@ if select(4, RuneCheck()) &amp;gt; 0
 	else
 		return true
 	end
-end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Leech</Name><Default>false</Default><SpellID>123693</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(123693) then
-	if PQ_ValidUnit
-	 and IsSpellInRange(GetSpellInfo(123693), PQR_CustomTarget) == 1 then
-	 	if UnitDebuff(PQR_CustomTarget, GetSpellInfo(55095)) 
-	 	 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(55078)) then
-	 	 	if PQR_SpellAvailable(77575) then	
-		 	 	if DepletedRune() &amp;gt;= 2 then
-		 	 		return true
-		 	 	end
-			end
-		end
-	elseif UnitExists(&amp;quot;focus&amp;quot;)
-	 and IsSpellInRange(GetSpellInfo(123693), &amp;quot;focus&amp;quot;) == 1 then
-	 	if UnitDebuff(&amp;quot;focus&amp;quot;, GetSpellInfo(55095)) 
-	 	 and UnitDebuff(&amp;quot;focus&amp;quot;, GetSpellInfo(55078)) then
-	 	 	if DepletedRune() &amp;gt;= 2 then
-	 	 		return true
-	 	 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Leech</Name><Default>false</Default><SpellID>123693</SpellID><Actions></Actions><Lua>local cTar = cTarFinder(nil, true)
+for i=1, #cTar do
+	local bPlague = UnitDebuff(cTar[i], GetSpellInfo(55078), &amp;quot;PLAYER&amp;quot;)
+	local fFever = UnitDebuff(cTar[i], GetSpellInfo(55095), &amp;quot;PLAYER&amp;quot;)
+
+	if bPlague and fFever and not UnitIsUnit(PQR_CustomTarget, cTar[i]) then
+		if DepletedRune() &amp;gt;= 2 then
+			PQR_CustomTarget = cTar[i]
+			return true
 		end
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Dark Transformation</Name><Default>false</Default><SpellID>63560</SpellID><Actions></Actions><Lua>local DT = { UnitBuffID(&amp;quot;player&amp;quot;, 91342) }
@@ -1439,10 +1430,42 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True<
 	if NUI(&amp;quot;player&amp;quot;) &amp;lt;= Nova_DeathPact and Nova_DeathPact_Check then
 		return true
 	end
-end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Gnaw</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Leap</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Update Tracker --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if not nUpdateTimer then nUpdateTimer = 0 end
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Gnaw</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(47481)
+ and UnitExists(&amp;quot;pet&amp;quot;)
+ and not UnitIsDead(&amp;quot;pet&amp;quot;)
+ and UnitExists(&amp;quot;focus&amp;quot;)
+ and UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;focus&amp;quot;)
+ and not UnitIsDead(&amp;quot;focus&amp;quot;) then
+ 	if IsSpellInRange(GetSpellInfo(47451), &amp;quot;focus&amp;quot;) == 1 then
+ 		if UnitCastingInfo(&amp;quot;focus&amp;quot;) then
+ 			
+ 			return true
+ 		end
+ 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Leap</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Update Tracker --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if not nUpdateTimer then nUpdateTimer = 0 end
 if GetTime() - nUpdateTimer &amp;gt;= 1 then
 	UpdateTargetTracker()
 	nUpdateTimer = GetTime()
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Arena Funcs --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>-------------------------------------------
 -- Smart Anti-Magic Shell
--------------------------------------------</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
+-------------------------------------------</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>True</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Leech - Old</Name><Default>false</Default><SpellID>123693</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(123693) then
+	if PQ_ValidUnit
+	 and IsSpellInRange(GetSpellInfo(123693), PQR_CustomTarget) == 1 then
+	 	if UnitDebuff(PQR_CustomTarget, GetSpellInfo(55095)) 
+	 	 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(55078)) then
+	 	 	if PQR_SpellAvailable(77575) then	
+		 	 	if DepletedRune() &amp;gt;= 2 then
+		 	 		return true
+		 	 	end
+			end
+		end
+	elseif UnitExists(&amp;quot;focus&amp;quot;)
+	 and IsSpellInRange(GetSpellInfo(123693), &amp;quot;focus&amp;quot;) == 1 then
+	 	if UnitDebuff(&amp;quot;focus&amp;quot;, GetSpellInfo(55095)) 
+	 	 and UnitDebuff(&amp;quot;focus&amp;quot;, GetSpellInfo(55078)) then
+	 	 	if DepletedRune() &amp;gt;= 2 then
+	 	 		return true
+	 	 	end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pestilence - Auto</Name><Default>false</Default><SpellID>50842</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
