@@ -990,11 +990,10 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
  and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
-	if targetHealth &amp;lt;= 35 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(130736), &amp;quot;PLAYER&amp;quot;) then
+	if targetHealth &amp;lt;= 35 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(130736), nil, &amp;quot;PLAYER&amp;quot;) then
 		if not nsTimer then nsTimer = 0 end
 		if GetTime() - nsTimer &amp;gt;= 2 then
 			nsTimer = GetTime()
-			print(&amp;quot;Time for some Necro Striking!!!&amp;quot;)
 		end
 		if select(4, RuneCheck()) == 0 then			
 			local BT = { UnitBuff(&amp;quot;player&amp;quot;, GetSpellInfo(114851)) }
@@ -1538,4 +1537,4 @@ end
 
 if nearby &amp;gt;= 2 then
 	return true
-end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
+end</Lua><RecastDelay>100</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
