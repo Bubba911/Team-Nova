@@ -1514,7 +1514,7 @@ end
 
 if nearby &amp;gt;= 2 then
 	return true
-end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil - Auto</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>local nearby = 0
+end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil - Auto</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>local nearby = 0
 if PQR_SpellAvailable(48721)
  and PQ_ValidUnit
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
