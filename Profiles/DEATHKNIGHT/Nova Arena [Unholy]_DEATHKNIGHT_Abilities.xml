@@ -850,13 +850,16 @@ if select(4, RuneCheck()) &amp;gt; 0
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Leech</Name><Default>false</Default><SpellID>123693</SpellID><Actions></Actions><Lua>local cTar = cTarFinder(nil, true)
 for i=1, #cTar do
-	local bPlague = UnitDebuff(cTar[i], GetSpellInfo(55078), &amp;quot;PLAYER&amp;quot;)
-	local fFever = UnitDebuff(cTar[i], GetSpellInfo(55095), &amp;quot;PLAYER&amp;quot;)
-
-	if bPlague and fFever and not UnitIsUnit(PQR_CustomTarget, cTar[i]) then
-		if DepletedRune() &amp;gt;= 2 then
-			PQR_CustomTarget = cTar[i]
-			return true
+	if not UnitIsUnit(PQR_CustomTarget, cTar[i]) then
+		local shGUID = string.sub(tostring(UnitGUID(cTar[i])), -5, -1)
+	 	if nDoTTargets[shGUID] then
+			if nDoTTargets[shGUID][55095]
+			 and nDoTTargets[shGUID][55078] then
+				if DepletedRune() &amp;gt;= 2 then
+					PQR_CustomTarget = cTar[i]
+					return true
+				end
+			end
 		end
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Dark Transformation</Name><Default>false</Default><SpellID>63560</SpellID><Actions></Actions><Lua>local DT = { UnitBuffID(&amp;quot;player&amp;quot;, 91342) }
@@ -1491,15 +1494,18 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 if PQR_SpellAvailable(50842)
  and PQ_ValidUnit
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
- 	if UnitDebuff(PQR_CustomTarget, GetSpellInfo(55078), &amp;quot;PLAYER&amp;quot;)
- 	 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(55095), &amp;quot;PLAYER&amp;quot;) then
- 		nearby = nearby + 1
-		for k,v in pairs(nDoTTargets) do
-			if v.nDist &amp;lt; 999 then
-				if v.nDist &amp;lt;= 10 
-				 and ( not nDoTTargets[k][55095]
-				 or not nDoTTargets[k][55078] ) then
-					nearby = nearby + 1
+	local shGUID = string.sub(tostring(UnitGUID(PQR_CustomTarget)), -5, -1)
+ 	if nDoTTargets[shGUID] then
+		if nDoTTargets[shGUID][55095]
+		 and nDoTTargets[shGUID][55078] then
+	 		nearby = nearby + 1
+			for k,v in pairs(nDoTTargets) do
+				if v.nDist &amp;lt; 999 then
+					if v.nDist &amp;lt;= 10 
+					 and ( not nDoTTargets[k][55095]
+					 or not nDoTTargets[k][55078] ) then
+						nearby = nearby + 1
+					end
 				end
 			end
 		end
@@ -1512,15 +1518,18 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
 if PQR_SpellAvailable(48721)
  and PQ_ValidUnit
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
- 	if UnitDebuff(PQR_CustomTarget, GetSpellInfo(55078), &amp;quot;PLAYER&amp;quot;)
- 	 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(55095), &amp;quot;PLAYER&amp;quot;) then
- 		nearby = nearby + 1
-		for k,v in pairs(nDoTTargets) do
-			if v.nDist &amp;lt; 999 then
-				if v.nDist &amp;lt;= 10 
-				 and ( not nDoTTargets[k][55095]
-				 or not nDoTTargets[k][55078] ) then
-					nearby = nearby + 1
+	local shGUID = string.sub(tostring(UnitGUID(PQR_CustomTarget)), -5, -1)
+ 	if nDoTTargets[shGUID] then
+		if nDoTTargets[shGUID][55095]
+		 and nDoTTargets[shGUID][55078] then
+	 		nearby = nearby + 1
+			for k,v in pairs(nDoTTargets) do
+				if v.nDist &amp;lt; 999 then
+					if v.nDist &amp;lt;= 10 
+					 and ( not nDoTTargets[k][55095]
+					 or not nDoTTargets[k][55078] ) then
+						nearby = nearby + 1
+					end
 				end
 			end
 		end
