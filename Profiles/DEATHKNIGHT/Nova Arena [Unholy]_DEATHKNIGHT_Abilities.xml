@@ -179,11 +179,24 @@ if not nDoTTargets then
 							end
 						end
 					end
+
+					-- This is for when Festering Strike hits and we add 6 seconds to the DoTs
+
+				elseif arg[2] == &amp;quot;SPELL_CAST_SUCCESS&amp;quot; then
+					if arg[12] == 85948 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							if nDoTTargets[shGUID][55078] then
+								nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] = nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+							end
+							if nDoTTargets[shGUID][55095] then
+								nDoTTargets[shGUID][55095][&amp;quot;dotExpTime&amp;quot;] = nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+							end
+						end
+					end
 				end
 			end
-		elseif event == &amp;quot;PLAYER_REGEN_ENABLED&amp;quot; 
-		 or event == &amp;quot;PLAYER_UNGHOST&amp;quot; 
-		 or event == &amp;quot;PLAYER_DEAD&amp;quot; then
+		elseif event == &amp;quot;PLAYER_REGEN_ENABLED&amp;quot; or event == &amp;quot;PLAYER_UNGHOST&amp;quot; or event == &amp;quot;PLAYER_DEAD&amp;quot; then
 			table.wipe(nDoTTargets)
 			Repopulate_Tracker(nDoTTargets)
 		end
@@ -713,7 +726,6 @@ function UpdateTargetTracker()
 	end
 end
 
-nUnitFacing = false
 
 nFunctionsSetup = true
 
@@ -738,6 +750,8 @@ end
 
 
 -- Target validation.
+PQ_ValidUnit = false
+nUnitFacing = false
 if UnitExists(&amp;quot;target&amp;quot;)
 	and (UnitIsEnemy(&amp;quot;player&amp;quot;, &amp;quot;target&amp;quot;) or UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;target&amp;quot;))
 	and (not UnitIsDeadOrGhost(&amp;quot;target&amp;quot;) and not UnitIsCorpse(&amp;quot;target&amp;quot;))
@@ -974,6 +988,11 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	local targetHealth = 100 * UnitHealth(PQR_CustomTarget) / UnitHealthMax(PQR_CustomTarget)
 	if targetHealth &amp;lt;= 35 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(130736), &amp;quot;PLAYER&amp;quot;) then
+		if not nsTimer then nsTimer = 0 end
+		if GetTime() - nsTimer &amp;gt;= 2 then
+			nsTimer = GetTime()
+			print(&amp;quot;Time for some Necro Striking!!!&amp;quot;)
+		end
 		if select(4, RuneCheck()) == 0 then			
 			local BT = { UnitBuff(&amp;quot;player&amp;quot;, GetSpellInfo(114851)) }
 			if BT[1] then
@@ -1068,7 +1087,7 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False
  and PQ_ValidUnit
  and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45902), PQR_CustomTarget) == 1 
- and select(4, RuneCheck()) == 0 and select(3, RuneCheck()) &amp;gt; 0 then
+ and select(4, RuneCheck()) == 0 and select(1, RuneCheck()) &amp;gt; 0 then
  	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Auto Focus Heal (Arena)</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local HealerTable = FindHealer()
 
@@ -1468,4 +1487,46 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>True<
 	 	 	end
 		end
 	end
-end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pestilence - Auto</Name><Default>false</Default><SpellID>50842</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pestilence - Auto</Name><Default>false</Default><SpellID>50842</SpellID><Actions></Actions><Lua>local nearby = 0
+if PQR_SpellAvailable(50842)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+ 	if UnitDebuff(PQR_CustomTarget, GetSpellInfo(55078), &amp;quot;PLAYER&amp;quot;)
+ 	 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(55095), &amp;quot;PLAYER&amp;quot;) then
+ 		nearby = nearby + 1
+		for k,v in pairs(nDoTTargets) do
+			if v.nDist &amp;lt; 999 then
+				if v.nDist &amp;lt;= 10 
+				 and ( not nDoTTargets[k][55095]
+				 or not nDoTTargets[k][55078] ) then
+					nearby = nearby + 1
+				end
+			end
+		end
+	end
+end
+
+if nearby &amp;gt;= 2 then
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil - Auto</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>local nearby = 0
+if PQR_SpellAvailable(48721)
+ and PQ_ValidUnit
+ and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+ 	if UnitDebuff(PQR_CustomTarget, GetSpellInfo(55078), &amp;quot;PLAYER&amp;quot;)
+ 	 and UnitDebuff(PQR_CustomTarget, GetSpellInfo(55095), &amp;quot;PLAYER&amp;quot;) then
+ 		nearby = nearby + 1
+		for k,v in pairs(nDoTTargets) do
+			if v.nDist &amp;lt; 999 then
+				if v.nDist &amp;lt;= 10 
+				 and ( not nDoTTargets[k][55095]
+				 or not nDoTTargets[k][55078] ) then
+					nearby = nearby + 1
+				end
+			end
+		end
+	end
+end
+
+if nearby &amp;gt;= 2 then
+	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
