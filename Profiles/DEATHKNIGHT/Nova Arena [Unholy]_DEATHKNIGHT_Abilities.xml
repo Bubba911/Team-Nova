@@ -670,7 +670,7 @@ end
 UpdateTargetTracker = nil
 function UpdateTargetTracker()
 	local cTar, cTargets  = cTarFinder(nil, true), {}
-	--local PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange = PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange
+	local PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange = PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange
 	local nDoTTargets, uiPlayer = nDoTTargets, {PQR_UnitInfo(UnitGUID(&amp;quot;player&amp;quot;))}
 
 	-- Create a cTargets Table formated like Target Tracker
@@ -864,7 +864,8 @@ for i=1, #cTar do
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Dark Transformation</Name><Default>false</Default><SpellID>63560</SpellID><Actions></Actions><Lua>local DT = { UnitBuffID(&amp;quot;player&amp;quot;, 91342) }
 if UnitExists(&amp;quot;pet&amp;quot;)
- and not UnitIsDead(&amp;quot;pet&amp;quot;) then
+ and not UnitIsDead(&amp;quot;pet&amp;quot;) 
+ and IsSpellInRange(GetSpellInfo(63560), &amp;quot;pet&amp;quot;) then
 	if DT[1] then
 		if DT[4] &amp;gt;= 5 then
 			return true
@@ -1499,11 +1500,13 @@ if PQR_SpellAvailable(50842)
 		 and nDoTTargets[shGUID][55078] then
 	 		nearby = nearby + 1
 			for k,v in pairs(nDoTTargets) do
-				if v.nDist &amp;lt; 999 then
-					if v.nDist &amp;lt;= 10 
-					 and ( not nDoTTargets[k][55095]
-					 or not nDoTTargets[k][55078] ) then
-						nearby = nearby + 1
+				if v.nDist then
+					if v.nDist &amp;lt; 999 then
+						if v.nDist &amp;lt;= 10 
+						 and ( not nDoTTargets[k][55095]
+						 or not nDoTTargets[k][55078] ) then
+							nearby = nearby + 1
+						end
 					end
 				end
 			end
@@ -1537,4 +1540,207 @@ end
 
 if nearby &amp;gt;= 2 then
 	return true
-end</Lua><RecastDelay>100</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
+end</Lua><RecastDelay>100</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- DoT Tracking Backup --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>-- Unit Tracker
+-- We will try and track all possible units, and keep track of their ranges and such when we can
+-- In a run once environment we shall create the Tooltip that we will be reading
+-- all of the spell details from
+if not nDoTTargets then
+	nDoTTargets = {}
+	nMetaTable = {
+		dotDamage = 0,
+		dotExpTime = 0,
+	}
+
+	local function Repopulate_Tracker(tab)
+		local IsInRaid, IsInGroup, UnitExists, UnitGUID, tabinsert = IsInRaid, IsInGroup, UnitExists, UnitGUID, table.insert
+		local uiPlayer = {PQR_UnitInfo(UnitGUID(&amp;quot;player&amp;quot;))}
+		local cTar = {&amp;quot;target&amp;quot;, &amp;quot;mouseover&amp;quot;, &amp;quot;focus&amp;quot; }
+		if UnitExists(&amp;quot;pet&amp;quot;) then
+			tabinsert(cTar, &amp;quot;pettarget&amp;quot;)
+		end
+		if IsInRaid() then
+			i = 1
+			while UnitExists(&amp;quot;raid&amp;quot;..i) do
+				tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;target&amp;quot;)
+				if UnitExists(&amp;quot;raid&amp;quot;..i..&amp;quot;pet&amp;quot;) then
+					tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;pettarget&amp;quot;)
+				end
+				i=i+1
+			end
+		elseif IsInGroup() then
+			i=1
+			while UnitExists(&amp;quot;party&amp;quot;..i) do
+				tabinsert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;target&amp;quot;)
+				if UnitExists(&amp;quot;party&amp;quot;..i..&amp;quot;pet&amp;quot;) then
+					tabinsert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;pettarget&amp;quot;)
+				end
+				i=i+1
+			end
+		end
+		-- For Arena Targets
+		if IsInInstance() and IsActiveBattlefieldArena() then
+			for i=1, 5 do
+				tabinsert(cTar, &amp;quot;arena&amp;quot;..i)
+				tabinsert(cTar, &amp;quot;arenapet&amp;quot;..i)
+			end
+		end
+
+		local nDTT = nDoTTargets
+		for i=1, #cTar do
+			if UnitExists(cTar[i]) then
+				local shGUID = string.sub(tostring(UnitGUID(cTar[i])), -5, -1)
+				if not nDTT[shGUID] then
+					local tarGUID = Nova_GUID(cTar[i])
+					nDTT[shGUID] = { guid = tarGUID }
+				end
+			end
+		end
+	end
+	
+
+	nDotReader = CreateFrame( &amp;quot;GameTooltip&amp;quot;, &amp;quot;nDotTT&amp;quot;, nil, &amp;quot;GameTooltipTemplate&amp;quot; ); --Tooltip name cannot be nil
+	nDotReader:SetOwner( WorldFrame, &amp;quot;ANCHOR_NONE&amp;quot; );
+	-- Allow tooltip SetX() methods to dynamically add new lines based on these
+	nDotReader:AddFontStrings(
+		nDotReader:CreateFontString( &amp;quot;$parentTextLeft1&amp;quot;, nil, &amp;quot;GameTooltipText&amp;quot; ),
+		nDotReader:CreateFontString( &amp;quot;$parentTextRight1&amp;quot;, nil, &amp;quot;GameTooltipText&amp;quot; ) );
+	nDoTCheck = nil
+	function nDoTCheck(spellID, tar)
+		if GetCVar(&amp;quot;DotDamage&amp;quot;) == nil then
+			RegisterCVar(&amp;quot;DotDamage&amp;quot;, 0)
+		end
+		nDotReader:ClearLines()
+		local i = 1
+		while UnitDebuff(tar, i) do
+			if UnitDebuff(tar, i) == GetSpellInfo(spellID) then
+				nDotReader:SetUnitDebuff(tar, i)
+				scanText = _G[&amp;quot;nDotTTTextLeft2&amp;quot;]:GetText()
+				local DoTDamage = scanText:match(&amp;quot;([0-9]+%.?[0-9]*)&amp;quot;)
+				SetCVar(&amp;quot;DotDamage&amp;quot;, tonumber(DoTDamage))
+				return tonumber(GetCVar(&amp;quot;DotDamage&amp;quot;)), select(7, UnitDebuff(tar, i))
+			end
+			i=i+1
+		end
+
+		return 0, 0
+	end
+
+	-- DoT Tracker
+	nDoTTracker = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;nDoTTracker&amp;quot;)
+	nDoTTracker:RegisterEvent(&amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot;)
+	nDoTTracker:RegisterEvent(&amp;quot;PLAYER_REGEN_ENABLED&amp;quot;)
+	nDoTTracker:RegisterEvent(&amp;quot;PLAYER_UNGHOST&amp;quot;)
+	nDoTTracker:RegisterEvent(&amp;quot;PLAYER_DEAD&amp;quot;)
+	nDoTTracker:SetScript(&amp;quot;OnEvent&amp;quot;, function(_, event, ...)
+		local arg = {...}
+		if event == &amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot; then
+			if arg[4] == UnitGUID(&amp;quot;player&amp;quot;) then
+
+				-- This is for when we first apply the Debuff to the Target
+
+				if arg[2] == &amp;quot;SPELL_AURA_APPLIED&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_APPLIED&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						local cTar = cTarFinder(arg[8])
+						if cTar then
+							local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end --setmetatable(nDoTTargets[shGUID][tostring(arg[12])], nMetaTable) end
+							nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+						else
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
+							nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)}
+						end
+					end
+
+					-- This is for when the Debuff is Removed from the Target
+
+				elseif arg[2] == &amp;quot;SPELL_AURA_REMOVED&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REMOVED&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							nDoTTargets[shGUID][arg[12]] = nil
+						end
+					end
+
+					-- This is for when we change targets and on a Tick, it will refresh the dotDamage is it wasn&amp;apos;t there before
+
+				elseif arg[2] == &amp;quot;SPELL_AURA_DAMAGE&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_DAMAGE&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							if nDoTTargets[shGUID][arg[12]] then
+								if nDoTTargets[shGUID][arg[12]].dotDamage == 0 then
+									local cTar = cTarFinder(arg[8])
+									if cTar then
+										local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+										nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = nDoTTargets[shGUID][arg[12]].savedAP  }
+									end
+								end
+							else
+								local cTar = cTarFinder(arg[8])
+								if cTar then
+									local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+									nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
+								else
+									nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
+								end
+							end
+						else
+							local cTar = cTarFinder(arg[8])
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
+							if cTar then
+								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+							else
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+							end
+						end
+					end
+
+					-- This is for when we Reapply the Debuff to the Target (before it is removed)
+
+				elseif arg[2] == &amp;quot;SPELL_AURA_REFRESH&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REFRESH&amp;quot; then
+					if arg[12] == 55095 or arg[12] == 55078 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							local cTar = cTarFinder(arg[8])
+							if cTar then
+								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+							else
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+							end
+						else
+							local cTar = cTarFinder(arg[8])
+							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
+							if cTar then
+								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+							else
+								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+							end
+						end
+					end
+
+					-- This is for when Festering Strike hits and we add 6 seconds to the DoTs
+
+				elseif arg[2] == &amp;quot;SPELL_CAST_SUCCESS&amp;quot; then
+					if arg[12] == 85948 then
+						local shGUID = string.sub(tostring(arg[8]), -5, -1)
+						if nDoTTargets[shGUID] then
+							if nDoTTargets[shGUID][55078] then
+								nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] = nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+							end
+							if nDoTTargets[shGUID][55095] then
+								nDoTTargets[shGUID][55095][&amp;quot;dotExpTime&amp;quot;] = nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+							end
+						end
+					end
+				end
+			end
+		elseif event == &amp;quot;PLAYER_REGEN_ENABLED&amp;quot; or event == &amp;quot;PLAYER_UNGHOST&amp;quot; or event == &amp;quot;PLAYER_DEAD&amp;quot; then
+			table.wipe(nDoTTargets)
+			Repopulate_Tracker(nDoTTargets)
+		end
+	end)
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
