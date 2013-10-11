@@ -68,7 +68,7 @@ end
 GlyphCheck = nil
 function GlyphCheck(glyphid)
 	for i=1, 6 do
-		if select(4, GetGlyphSocketInfo(i)) == glyphid then
+		if select(4, GetGlyphSocketInfo(i, GetActiveSpecGroup())) == glyphid then
 			return true
 		end
 	end

@@ -321,7 +321,14 @@ if not PQI_Setup_Unholy then
 				step = 1,
 				},
 			},
-			
+			{name = &amp;apos;Auto AMS&amp;apos;,
+			enable = true,
+			tooltip = &amp;apos;Will Auto AMS on Dangerous Spells&amp;apos;,
+			},
+			{name = &amp;apos;Blood Strike Overwrite&amp;apos;,
+			enable = false,
+			tooltip = &amp;apos;Will use Blood Strike instead of Blood Boil to consume excess Blood Runes&amp;apos;,
+			},
 			{name = &amp;apos;Empower Rune Weapon&amp;apos;,
 			enable = true,
 			widget = {
@@ -450,6 +457,46 @@ if not outbreakCheck then
 		end
 	end)
 end
+
+if not nPetUpdate then
+	PetAttackID = nil
+	local nPetUpdate = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;nPetUpdate&amp;quot;)
+	nPetUpdate:RegisterEvent(&amp;quot;PET_BAR_UPDATE&amp;quot;)
+	nPetUpdate:SetScript(&amp;quot;OnEvent&amp;quot;, function()
+		for i=1, NUM_PET_ACTION_SLOTS do
+			if GetPetActionInfo(i) == &amp;quot;PET_ACTION_ATTACK&amp;quot; then
+				PetAttackID = i
+				break
+			end
+		end
+		PetAttackID = nil
+	end)
+end
+
+if not nAMSframe then
+	local DangerousList = { }
+	local nAMSframe = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;nAMSframe&amp;quot;)
+	nAMSframe:RegisterEvent(&amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot;)
+	local function nAMS_OnEvent(_, _, ...)
+		local arg = { ... }
+		if arg[2] == &amp;quot;SPELL_CAST_SUCCESS&amp;quot; or arg[2] == &amp;quot;SPELL_CAST_START&amp;quot; then
+			if arg[8] == UnitGUID(&amp;quot;player&amp;quot;) then
+				if PQR_SpellAvailable(48707)
+				 and Nova_AutoAMS_Check then
+					for i=1, #DangerousList do
+						if arg[12] == DangerousList[i] then
+							if select(3,GetNetStats()) + select(4,GetNetStats()) &amp;lt;= 250 then
+								CastSpellByName(GetSpellInfo(48707), &amp;quot;player&amp;quot;)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	nAMSframe:SetScript(&amp;quot;OnEvent&amp;quot;, nAMS_OnEvent)
+end
+
 
 -- Death Rune on CD Check
 DeathRuneCD = nil
@@ -585,20 +632,18 @@ function NoImmunity(tar)
 end
 
 FindHealer = nil
-function FindHealer()
-	local cTar = cTarFinder(nil, true)
+function FindHealer(tab)
+	local cTar = tab and type(tab) == &amp;quot;string&amp;quot; and { tab } or tab and tab or cTarFinder(nil, true)
 	local enemyHealerTab = { }
 	for i=1, #cTar do
-		if UnitExists(cTar[i]) then
-			local nSpec =  string.sub(string.lower(select(2, UnitClass(cTar[i]))), 1, 3)
-			if nSpec == &amp;quot;pal&amp;quot; or nSpec == &amp;quot;dru&amp;quot; or nSpec == &amp;quot;sha&amp;quot; or nSpec == &amp;quot;pri&amp;quot; or nSpec == &amp;quot;mon&amp;quot; then
-				if UnitPowerMax(cTar[i]) &amp;gt;= 29000
-				 and not UnitBuffID(cTar[i], 24858)
-				 and not UnitBuffID(cTar[i], 15473)
-				 and not UnitBuffID(cTar[i], 324)
-				 and UnitCanAttack(&amp;quot;player&amp;quot;, cTar[i]) then
-					table.insert(enemyHealerTab, { guid = UnitGUID(cTar[i]), unit = cTar[i] } )
-				end
+		local nSpec =  string.sub(string.lower(select(2, UnitClass(cTar[i]))), 1, 3)
+		if nSpec == &amp;quot;pal&amp;quot; or nSpec == &amp;quot;dru&amp;quot; or nSpec == &amp;quot;sha&amp;quot; or nSpec == &amp;quot;pri&amp;quot; or nSpec == &amp;quot;mon&amp;quot; then
+			if UnitPowerMax(cTar[i]) &amp;gt;= 29000
+			 and not UnitBuffID(cTar[i], 24858)
+			 and not UnitBuffID(cTar[i], 15473)
+			 and not UnitBuffID(cTar[i], 324)
+			 and UnitCanAttack(&amp;quot;player&amp;quot;, cTar[i]) then
+				table.insert(enemyHealerTab, { guid = UnitGUID(cTar[i]), unit = cTar[i] } )
 			end
 		end
 	end
@@ -617,7 +662,7 @@ function cTarFinder(tarGUID, returncTar)
 	if IsInRaid() then
 		i = 1
 		while UnitExists(&amp;quot;raid&amp;quot;..i) do
-			tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;target&amp;quot;)
+				tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;target&amp;quot;)
 			if UnitExists(&amp;quot;raid&amp;quot;..i..&amp;quot;pet&amp;quot;) then
 				tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;pettarget&amp;quot;)
 			end
@@ -650,6 +695,13 @@ function cTarFinder(tarGUID, returncTar)
 			end
 		end
 	elseif returncTar == true then
+		local y=#cTar
+		while y&amp;gt;0 do
+			if not UnitExists(cTar[y]) then
+				table.remove(cTar, y)
+			end
+			y=y-1
+		end
 		return cTar
 	end
 
@@ -1081,16 +1133,23 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
  and IsSpellInRange(GetSpellInfo(49576), &amp;quot;mouseover&amp;quot;) == 1 then
  	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Mouseover</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(48721)
- and Nova_ModBloodBoil
- and Nova_ModBloodBoil_Check
- and not GetCurrentKeyBoardFocus()
- and PQ_ValidUnit then
- 	return true
-end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Strike</Name><Default>false</Default><SpellID>45902</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45902)
+ and PQ_ValidUnit
+ and select(4, RuneCheck()) == 0 and select(1, RuneCheck()) &amp;gt; 0 and select(3, RuneCheck()) == 0
+ and not Nova_BloodStrikeOverwrite_Check then
+ 	local shGUID = string.sub(tostring(UnitGUID(PQR_CustomTarget)), -5, -1)
+ 	if nDoTTargets[shGUID] then
+ 		if nDoTTargets[shGUID][&amp;apos;nDist&amp;apos;] &amp;lt; 10 then
+ 			return true
+ 		elseif IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
+ 			return true
+ 		end
+ 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Strike</Name><Default>false</Default><SpellID>45902</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45902)
  and PQ_ValidUnit
  and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45902), PQR_CustomTarget) == 1 
- and select(4, RuneCheck()) == 0 and select(1, RuneCheck()) &amp;gt; 0 then
+ and select(4, RuneCheck()) == 0 and select(1, RuneCheck()) &amp;gt; 0 
+ and Nova_BloodStrikeOverwrite_Check then
  	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Auto Focus Heal (Arena)</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local HealerTable = FindHealer()
 
@@ -1460,11 +1519,23 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Player</Target><CancelChannel>False
  and not UnitIsDead(&amp;quot;focus&amp;quot;) then
  	if IsSpellInRange(GetSpellInfo(47451), &amp;quot;focus&amp;quot;) == 1 then
  		if UnitCastingInfo(&amp;quot;focus&amp;quot;) then
- 			
+ 			CastSpellByName(GetSpellInfo(47451), &amp;quot;focus&amp;quot;)
  			return true
  		end
  	end
-end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Leap</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>return true</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Update Tracker --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if not nUpdateTimer then nUpdateTimer = 0 end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Leap</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(47482)
+ and UnitExists(&amp;quot;pet&amp;quot;)
+ and not UnitIsDead(&amp;quot;pet&amp;quot;)
+ and UnitExists(&amp;quot;focus&amp;quot;)
+ and UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;focus&amp;quot;)
+ and not UnitIsDead(&amp;quot;focus&amp;quot;) then
+ 	if IsSpellInRange(GetSpellInfo(47482), &amp;quot;focus&amp;quot;) == 1 then
+ 		if UnitCastingInfo(&amp;quot;focus&amp;quot;) then
+ 			CastSpellByName(GetSpellInfo(47482), &amp;quot;focus&amp;quot;)
+ 			return true
+ 		end
+ 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>-- Update Tracker --</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if not nUpdateTimer then nUpdateTimer = 0 end
 if GetTime() - nUpdateTimer &amp;gt;= 1 then
 	UpdateTargetTracker()
 	nUpdateTimer = GetTime()
@@ -1518,6 +1589,7 @@ if nearby &amp;gt;= 2 then
 	return true
 end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil - Auto</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>local nearby = 0
 if PQR_SpellAvailable(48721)
+ and IsPlayerSpell(108170)
  and PQ_ValidUnit
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
 	local shGUID = string.sub(tostring(UnitGUID(PQR_CustomTarget)), -5, -1)
@@ -1743,4 +1815,110 @@ if not nDoTTargets then
 			Repopulate_Tracker(nDoTTargets)
 		end
 	end)
-end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
+end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Auto Focus (Arena)</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local cTar = cTarFinder(nil, true)
+print(type(cTar))
+
+if Nova_AutoFocus_Check
+ and IsInInstance()
+ and ( select(2, GetInstanceInfo()) == &amp;quot;pvp&amp;quot;
+ or IsActiveBattlefieldArena()
+ or IsRatedBattleground() ) then
+	local HealerTable = FindHealer(cTar)
+	if #HealerTable &amp;gt; 0 then
+		if not UnitExists(&amp;quot;focus&amp;quot;)
+		 or UnitIsDead(&amp;quot;focus&amp;quot;)
+		 or (UnitExists(&amp;quot;focus&amp;quot;) and ( IsSpellInRange(GetSpellInfo(45477), &amp;quot;focus&amp;quot;) == 0 or UnitIsUnit(&amp;quot;focus&amp;quot;, &amp;quot;target&amp;quot;)) ) then
+			for i=1, #HealerTable do
+				if IsSpellInRange(GetSpellInfo(45477), HealerTable[i].unit) == 1
+				 and not UnitIsUnit(&amp;quot;target&amp;quot;, HealerTable[i].unit) then
+					FocusUnit(HealerTable[i].unit)
+					return false
+				end
+			end
+			if not UnitExists(&amp;quot;focus&amp;quot;) then
+				FocusUnit(HealerTable[1].unit)
+				return false
+			elseif UnitExists(&amp;quot;focus&amp;quot;) and UnitIsUnit(&amp;quot;target&amp;quot;, &amp;quot;focus&amp;quot;) then
+				for i=1, #cTar do
+					if UnitCanAttack(&amp;quot;player&amp;quot;, cTar[i])
+					 and not UnitIsUnit(&amp;quot;target&amp;quot;, cTar[i]) then
+						FocusUnit(cTar[i])
+						return false
+					end
+				end
+			end
+		elseif UnitExists(&amp;quot;target&amp;quot;) and UnitExists(&amp;quot;focus&amp;quot;) and UnitIsUnit(&amp;quot;target&amp;quot;, &amp;quot;focus&amp;quot;) then
+			for i=1, #cTar do
+				if UnitCanAttack(&amp;quot;player&amp;quot;, cTar[i])
+				 and not UnitIsUnit(&amp;quot;target&amp;quot;, cTar[i]) then
+					FocusUnit(cTar[i])
+					return false
+				end
+			end
+		end
+	elseif UnitExists(&amp;quot;target&amp;quot;) and UnitExists(&amp;quot;focus&amp;quot;) and UnitIsUnit(&amp;quot;target&amp;quot;, &amp;quot;focus&amp;quot;) then
+		for i=1, #cTar do
+			if UnitCanAttack(&amp;quot;player&amp;quot;, cTar[i])
+			 and not UnitIsUnit(&amp;quot;target&amp;quot;, cTar[i]) then
+				FocusUnit(cTar[i])
+				return false
+			end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Attack</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(47481)
+ and UnitExists(&amp;quot;pet&amp;quot;)
+ and not UnitIsDead(&amp;quot;pet&amp;quot;)
+ and UnitExists(&amp;quot;focus&amp;quot;)
+ and UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;focus&amp;quot;)
+ and not UnitIsDead(&amp;quot;focus&amp;quot;) then
+ 	if not UnitExists(&amp;quot;pettarget&amp;quot;) or not UnitIsUnit(&amp;quot;pettarget&amp;quot;, &amp;quot;focus&amp;quot;) then
+ 		CastPetAction(1, &amp;quot;focus&amp;quot;)
+ 	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Icy Touch (Dispel)</Name><Default>false</Default><SpellID>45477</SpellID><Actions></Actions><Lua>local DispelList = {
+	1022, -- Hand of Protection
+	132158, -- Nature&amp;apos;s Swiftness
+}
+local cTar = cTarFinder(nil, true)
+
+if PQR_SpellAvailable(45477) then
+	for i=1, #cTar do
+		if UnitCanAttack(&amp;quot;player&amp;quot;, cTar[i])
+		 and IsSpellInRange(GetSpellInfo(45477), cTar[i]) == 1
+		 and PQR_UnitFacing(&amp;quot;player&amp;quot;, cTar[i]) then
+			for y=1, #DispelList do
+				if UnitBuff(GetSpellInfo(DispelList[y]), cTar[i]) then
+					if select(7, UnitBuff(GetSpellInfo(DispelList[y]), cTar[i])) - GetTime() &amp;gt;= 5 then
+						PQR_CustomTarget = cTar[i]
+						return true
+					end
+				end
+			end
+		end
+	end
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pet - Huddle</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local petTarget = 0
+
+if IsInInstance() 
+ and IsActiveBattlefieldArena() then
+	if PQR_SpellAvailable(47484)
+	 and UnitExists(&amp;quot;pet&amp;quot;)
+	 and not UnitIsDead(&amp;quot;pet&amp;quot;) then
+	 	local cTar, petTarget = cTarFinder(nil, true), 0
+	 	for i=1, #cTar do
+	 		if UnitCanAttack(cTar[i], &amp;quot;pet&amp;quot;) 
+	 		 and UnitIsUnit(cTar[i]..&amp;quot;target&amp;quot;, &amp;quot;pet&amp;quot;) then
+	 		 	petTarget = petTarget + 1
+	 		end
+	 	end
+	 end
+end
+
+if petTarget &amp;gt;= 2 then
+	CastSpellByName(GetSpellInfo(47484), &amp;quot;pet&amp;quot;)
+	return false
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Icy Touch</Name><Default>false</Default><SpellID>45477</SpellID><Actions></Actions><Lua>if PQR_SpellAvailable(45477)
+ and PQ_ValidUnit
+ and nUnitFacing
+ and IsSpellInRange(GetSpellInfo(45477), PQR_CustomTarget) == 1 
+ and select(4, RuneCheck()) == 0 and select(3, RuneCheck()) &amp;gt; 0 then
+ 	return true
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
