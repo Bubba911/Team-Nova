@@ -4,10 +4,7 @@
 -- all of the spell details from
 if not nDoTTargets then
 	nDoTTargets = {}
-	nMetaTable = {
-		dotDamage = 0,
-		dotExpTime = 0,
-	}
+	local nDoTT = nDoTTargets
 
 	local function Repopulate_Tracker(tab)
 		local IsInRaid, IsInGroup, UnitExists, UnitGUID, tabinsert = IsInRaid, IsInGroup, UnitExists, UnitGUID, table.insert
@@ -20,17 +17,17 @@ if not nDoTTargets then
 			i = 1
 			while UnitExists(&amp;quot;raid&amp;quot;..i) do
 				tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;target&amp;quot;)
-				if UnitExists(&amp;quot;raid&amp;quot;..i..&amp;quot;pet&amp;quot;) then
-					tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;pettarget&amp;quot;)
+				if UnitExists(&amp;quot;raidpet&amp;quot;..i) then
+					tabinsert(cTar, &amp;quot;raidpet&amp;quot;..i..&amp;quot;target&amp;quot;)
 				end
 				i=i+1
 			end
 		elseif IsInGroup() then
-			i=1
+			i = 1
 			while UnitExists(&amp;quot;party&amp;quot;..i) do
 				tabinsert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;target&amp;quot;)
-				if UnitExists(&amp;quot;party&amp;quot;..i..&amp;quot;pet&amp;quot;) then
-					tabinsert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;pettarget&amp;quot;)
+				if UnitExists(&amp;quot;partypet&amp;quot;..i) then
+					tabinsert(cTar, &amp;quot;partypet&amp;quot;..i..&amp;quot;target&amp;quot;)
 				end
 				i=i+1
 			end
@@ -43,25 +40,23 @@ if not nDoTTargets then
 			end
 		end
 
-		local nDTT = nDoTTargets
 		for i=1, #cTar do
 			if UnitExists(cTar[i]) then
 				local shGUID = string.sub(tostring(UnitGUID(cTar[i])), -5, -1)
-				if not nDTT[shGUID] then
+				if not nDoTT[shGUID] then
 					local tarGUID = Nova_GUID(cTar[i])
-					nDTT[shGUID] = { guid = tarGUID }
+					nDoTT[shGUID] = { guid = tarGUID }
 				end
 			end
 		end
 	end
-	
 
-	nDotReader = CreateFrame( &amp;quot;GameTooltip&amp;quot;, &amp;quot;nDotTT&amp;quot;, nil, &amp;quot;GameTooltipTemplate&amp;quot; ); --Tooltip name cannot be nil
-	nDotReader:SetOwner( WorldFrame, &amp;quot;ANCHOR_NONE&amp;quot; );
-	-- Allow tooltip SetX() methods to dynamically add new lines based on these
+
+	local nDotReader = CreateFrame( &amp;quot;GameTooltip&amp;quot;, &amp;quot;nDotTT&amp;quot;, nil, &amp;quot;GameTooltipTemplate&amp;quot; )
+	nDotReader:SetOwner( WorldFrame, &amp;quot;ANCHOR_NONE&amp;quot; )
 	nDotReader:AddFontStrings(
 		nDotReader:CreateFontString( &amp;quot;$parentTextLeft1&amp;quot;, nil, &amp;quot;GameTooltipText&amp;quot; ),
-		nDotReader:CreateFontString( &amp;quot;$parentTextRight1&amp;quot;, nil, &amp;quot;GameTooltipText&amp;quot; ) );
+		nDotReader:CreateFontString( &amp;quot;$parentTextRight1&amp;quot;, nil, &amp;quot;GameTooltipText&amp;quot; ) )
 	nDoTCheck = nil
 	function nDoTCheck(spellID, tar)
 		if GetCVar(&amp;quot;DotDamage&amp;quot;) == nil then
@@ -84,7 +79,7 @@ if not nDoTTargets then
 	end
 
 	-- DoT Tracker
-	nDoTTracker = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;nDoTTracker&amp;quot;)
+	local nDoTTracker = CreateFrame(&amp;quot;frame&amp;quot;, &amp;quot;nDoTTracker&amp;quot;)
 	nDoTTracker:RegisterEvent(&amp;quot;COMBAT_LOG_EVENT_UNFILTERED&amp;quot;)
 	nDoTTracker:RegisterEvent(&amp;quot;PLAYER_REGEN_ENABLED&amp;quot;)
 	nDoTTracker:RegisterEvent(&amp;quot;PLAYER_UNGHOST&amp;quot;)
@@ -102,11 +97,11 @@ if not nDoTTargets then
 						local cTar = cTarFinder(arg[8])
 						if cTar then
 							local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end --setmetatable(nDoTTargets[shGUID][tostring(arg[12])], nMetaTable) end
-							nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+							if not nDoTT[shGUID] then nDoTT[shGUID] = { guid = arg[8] } end
+							nDoTT[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 						else
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
-							nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)}
+							if not nDoTT[shGUID] then nDoTT[shGUID] = { guid = arg[8] } end
+							nDoTT[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)}
 						end
 					end
 
@@ -115,8 +110,8 @@ if not nDoTTargets then
 				elseif arg[2] == &amp;quot;SPELL_AURA_REMOVED&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REMOVED&amp;quot; then
 					if arg[12] == 55095 or arg[12] == 55078 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
-						if nDoTTargets[shGUID] then
-							nDoTTargets[shGUID][arg[12]] = nil
+						if nDoTT[shGUID] then
+							nDoTT[shGUID][arg[12]] = nil
 						end
 					end
 
@@ -125,32 +120,32 @@ if not nDoTTargets then
 				elseif arg[2] == &amp;quot;SPELL_AURA_DAMAGE&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_DAMAGE&amp;quot; then
 					if arg[12] == 55095 or arg[12] == 55078 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
-						if nDoTTargets[shGUID] then
-							if nDoTTargets[shGUID][arg[12]] then
-								if nDoTTargets[shGUID][arg[12]].dotDamage == 0 then
+						if nDoTT[shGUID] then
+							if nDoTT[shGUID][arg[12]] then
+								if nDoTT[shGUID][arg[12]].dotDamage == 0 then
 									local cTar = cTarFinder(arg[8])
 									if cTar then
 										local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-										nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = nDoTTargets[shGUID][arg[12]].savedAP  }
+										nDoTT[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = nDoTT[shGUID][arg[12]].savedAP  }
 									end
 								end
 							else
 								local cTar = cTarFinder(arg[8])
 								if cTar then
 									local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-									nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
+									nDoTT[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
 								else
-									nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
+									nDoTT[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;)  }
 								end
 							end
 						else
 							local cTar = cTarFinder(arg[8])
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
+							if not nDoTT[shGUID] then nDoTT[shGUID] = { guid = arg[8] } end
 							if cTar then
 								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+								nDoTT[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							else
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+								nDoTT[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							end
 						end
 					end
@@ -160,22 +155,22 @@ if not nDoTTargets then
 				elseif arg[2] == &amp;quot;SPELL_AURA_REFRESH&amp;quot; or arg[2] == &amp;quot;SPELL_PERIODIC_AURA_REFRESH&amp;quot; then
 					if arg[12] == 55095 or arg[12] == 55078 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
-						if nDoTTargets[shGUID] then
+						if nDoTT[shGUID] then
 							local cTar = cTarFinder(arg[8])
 							if cTar then
 								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+								nDoTT[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							else
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+								nDoTT[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							end
 						else
 							local cTar = cTarFinder(arg[8])
-							if not nDoTTargets[shGUID] then nDoTTargets[shGUID] = { guid = arg[8] } end
+							if not nDoTT[shGUID] then nDoTT[shGUID] = { guid = arg[8] } end
 							if cTar then
 								local dotDamage, expTime = nDoTCheck(arg[12], cTar)
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+								nDoTT[shGUID][arg[12]] = { dotDamage = dotDamage, dotExpTime = expTime, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							else
-								nDoTTargets[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
+								nDoTT[shGUID][arg[12]] = { dotDamage = 0, dotExpTime = 0, savedAP = UnitAttackPower(&amp;quot;player&amp;quot;) }
 							end
 						end
 					end
@@ -185,20 +180,33 @@ if not nDoTTargets then
 				elseif arg[2] == &amp;quot;SPELL_CAST_SUCCESS&amp;quot; then
 					if arg[12] == 85948 then
 						local shGUID = string.sub(tostring(arg[8]), -5, -1)
-						if nDoTTargets[shGUID] then
-							if nDoTTargets[shGUID][55078] then
-								nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] = nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+						local cTar = cTarFinder(arg[8])
+						if cTar then
+							local dotDamage, expTime = nDoTCheck(arg[12], cTar)
+							if nDoTT[shGUID] then
+								if nDoTT[shGUID][55078] then
+									nDoTT[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] = expTime
+								end
+								if nDoTT[shGUID][55095] then
+									nDoTT[shGUID][55095][&amp;quot;dotExpTime&amp;quot;] = expTime
+								end
 							end
-							if nDoTTargets[shGUID][55095] then
-								nDoTTargets[shGUID][55095][&amp;quot;dotExpTime&amp;quot;] = nDoTTargets[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+						else
+							if nDoTT[shGUID] then
+								if nDoTT[shGUID][55078] then
+									nDoTT[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] = nDoTT[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+								end
+								if nDoTT[shGUID][55095] then
+									nDoTT[shGUID][55095][&amp;quot;dotExpTime&amp;quot;] = nDoTT[shGUID][55078][&amp;quot;dotExpTime&amp;quot;] + 6
+								end
 							end
 						end
 					end
 				end
 			end
 		elseif event == &amp;quot;PLAYER_REGEN_ENABLED&amp;quot; or event == &amp;quot;PLAYER_UNGHOST&amp;quot; or event == &amp;quot;PLAYER_DEAD&amp;quot; then
-			table.wipe(nDoTTargets)
-			Repopulate_Tracker(nDoTTargets)
+			table.wipe(nDoTT)
+			Repopulate_Tracker(nDoTT)
 		end
 	end)
 end</Lua><RecastDelay>0</RecastDelay><Target>Target</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Debuff Handling</Name><Default>false</Default><SpellID>0</SpellID><Actions></Actions><Lua>local FF,_,_,_,_,_,FFtimer = UnitDebuffID(PQR_CustomTarget,55095,&amp;quot;player&amp;quot;)
@@ -344,6 +352,10 @@ if not PQI_Setup_Unholy then
 				value = 30,
 				step = 1,
 				},
+			},
+			{name = &amp;apos;Disable Range Check&amp;apos;,
+			enable = false,
+			tooltip = &amp;apos;This will disable the PQR Range check and make it less accurate but less stutters. Good for large BGs&amp;apos;,
 			},
 			{name = &amp;apos;Enter BG Wait Time&amp;apos;,
 				enable = true,
@@ -653,7 +665,7 @@ end
 
 cTarFinder = nil
 function cTarFinder(tarGUID, returncTar)
-	local IsInRaid, IsInGroup, UnitExists, UnitGUID, tabinsert = IsInRaid, IsInGroup, UnitExists, UnitGUID, table.insert
+	local IsInRaid, IsInGroup, UnitExists, UnitGUID, tabinsert, UnitIsDead = IsInRaid, IsInGroup, UnitExists, UnitGUID, table.insert, UnitIsDead
 	local cTar = {&amp;quot;target&amp;quot;, &amp;quot;mouseover&amp;quot;, &amp;quot;focus&amp;quot; }
 	-- For Raid/Party Targets
 	if UnitExists(&amp;quot;pet&amp;quot;) then
@@ -663,8 +675,8 @@ function cTarFinder(tarGUID, returncTar)
 		i = 1
 		while UnitExists(&amp;quot;raid&amp;quot;..i) do
 				tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;target&amp;quot;)
-			if UnitExists(&amp;quot;raid&amp;quot;..i..&amp;quot;pet&amp;quot;) then
-				tabinsert(cTar, &amp;quot;raid&amp;quot;..i..&amp;quot;pettarget&amp;quot;)
+			if UnitExists(&amp;quot;raidpet&amp;quot;..i) then
+				tabinsert(cTar, &amp;quot;raidpet&amp;quot;..i..&amp;quot;target&amp;quot;)
 			end
 			i=i+1
 		end
@@ -672,8 +684,8 @@ function cTarFinder(tarGUID, returncTar)
 		i=1
 		while UnitExists(&amp;quot;party&amp;quot;..i) do
 			tabinsert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;target&amp;quot;)
-			if UnitExists(&amp;quot;party&amp;quot;..i..&amp;quot;pet&amp;quot;) then
-				tabinsert(cTar, &amp;quot;party&amp;quot;..i..&amp;quot;pettarget&amp;quot;)
+			if UnitExists(&amp;quot;partypet&amp;quot;..i) then
+				tabinsert(cTar, &amp;quot;partypet&amp;quot;..i..&amp;quot;target&amp;quot;)
 			end
 			i=i+1
 		end
@@ -697,7 +709,8 @@ function cTarFinder(tarGUID, returncTar)
 	elseif returncTar == true then
 		local y=#cTar
 		while y&amp;gt;0 do
-			if not UnitExists(cTar[y]) then
+			if not UnitExists(cTar[y]) 
+			 or UnitIsDead(cTar[y]) then
 				table.remove(cTar, y)
 			end
 			y=y-1
@@ -719,63 +732,117 @@ function DistanceBetweenUnit(tar1, tar2)
 	return distance
 end
 
+RemoveDeuplicates = nil
+function RemoveDuplicates(tab)
+	local seen = {}
+	local duplicates = {}
+	local cTargets = { }
+	for i=1, #tab do
+		local Unit = tab[i]
+		local sGUID = string.sub(tostring(UnitGUID(Unit)), -5, -1)
+		if seen[sGUID] then
+			duplicates[sGUID] = true
+		else
+			seen[sGUID] = true
+			table.insert(cTargets, { unit = Unit, sGUID = sGUID, guid = UnitGUID(Unit) } )
+			print(tab[i])
+		end
+	end
+
+	return cTargets
+end
+
+-- Range Check
 UpdateTargetTracker = nil
 function UpdateTargetTracker()
 	local cTar, cTargets  = cTarFinder(nil, true), {}
-	local PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange = PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange
-	local nDoTTargets, uiPlayer = nDoTTargets, {PQR_UnitInfo(UnitGUID(&amp;quot;player&amp;quot;))}
-
+	--local PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange, nDoTCheck, IsSpellInRange = PQR_UnitInfo, DistanceBetweenUnits, pairs, tremove, UnitExists, UnitGUID, UnitInRange, nDoTCheck, IsSpellInRange
+	local nDoT = nDoTTargets
+	uiPlayer = {PQR_UnitInfo(UnitGUID(&amp;quot;player&amp;quot;))}
+	
+	local uiPlayer = uiPlayer
 	-- Create a cTargets Table formated like Target Tracker
-	for j=1, #cTar do
-		if UnitExists(cTar[j]) and not UnitIsDead(cTar[j]) then
-			local shortHand = string.sub(tostring(UnitGUID(cTar[j])), -5, -1)
+	local cTars = RemoveDuplicates(cTar)
+	for j=1, #cTars do
+		if UnitExists(cTars[j].unit) and not UnitIsDead(cTars[j].unit) then
+			local shortHand = cTars[j].sGUID
 			if not cTargets[shortHand] then
-				cTargets[shortHand] = { guid = UnitGUID(cTar[j]), unit = cTar[j] }
+				cTargets[shortHand] = { guid = cTars[j].guid, unit = cTars[j].unit }
 			end
 		end
 	end
 
 	-- We are going to go through the entire DoT Tracking Table
-	for k,v in pairs(nDoTTargets) do
+	for k,v in pairs(nDoT) do
 		if cTargets[k] then
 			v.unit = cTargets[k].unit
 			if v.guid ~= cTargets[k].guid then v.guid = cTargets[k].guid end
-			if nDoTTargets[k][55095] then
-				if nDoTTargets[k][55095].dotDamage == 0 then
+			if nDoT[k][55095] then
+				if nDoT[k][55095].dotDamage == 0 then
 					local dotDamage, expTime = nDoTCheck(55095, cTargets[k].unit)
-					nDoTTargets[k][55095].dotDamage = dotDamage
-					nDoTTargets[k][55095].dotExpTime = expTime
+					nDoT[k][55095].dotDamage = dotDamage
+					nDoT[k][55095].dotExpTime = expTime
 				end
 			end
-			if nDoTTargets[k][55078] then
-				if nDoTTargets[k][55078].dotDamage == 0 then
+			if nDoT[k][55078] then
+				if nDoT[k][55078].dotDamage == 0 then
 					local dotDamage, expTime = nDoTCheck(55078, cTargets[k].unit)
-					nDoTTargets[k][55078].dotDamage = dotDamage
-					nDoTTargets[k][55078].dotExpTime = expTime
+					nDoT[k][55078].dotDamage = dotDamage
+					nDoT[k][55078].dotExpTime = expTime
 				end
 			end
 			-- If they are within 30 yards, we will record their distance (may turn this into x,y coords being saved)
 			if IsSpellInRange(GetSpellInfo(45524), cTargets[k].unit) == 1 then
-				nDoTTargets[k].nDist = DistanceBetweenUnit(uiPlayer, {PQR_UnitInfo(cTargets[k].guid)})
+				if not Nova_DisableRangeCheck_Check then
+					nDoT[k].nDist = {PQR_UnitInfo(cTargets[k].guid) }
+					print(nDoT[k].nDist)
+				else
+					nDoT[k].nDist = IsSpellInRange(GetSpellInfo(45462), cTargets[k].unit)
+					print(&amp;quot;Range Check Disabled&amp;quot;)
+				end
 			else
-				nDoTTargets[k].nDist = 999
+				nDoT[k].nDist = false
 			end
 			cTargets[k]=nil
 		else
-			nDoTTargets[k].unit = false
-			nDoTTargets[k].nDist = 999
+			nDoT[k].unit = false
+			nDoT[k].nDist = false
 			cTargets[k]=nil
 		end
 	end
 
 	for k, v in pairs(cTargets) do
-		nDoTTargets[k] = v
+		nDoT[k] = v
 		if IsSpellInRange(GetSpellInfo(45523), v.unit) == 1 then
-			nDoTTargets[k].nDist = DistanceBetweenUnit(uiPlayer, {PQR_UnitInfo(cTargets[k].guid)})
+			if not Nova_DisableRangeCheck_Check then
+				nDoT[k].nDist = {PQR_UnitInfo(v.guid) }
+			else
+				nDoT[k].nDist = IsSpellInRange(GetSpellInfo(45462), v.unit)
+			end
 		else
-			nDoTTargets[k].nDist = 999
+			nDoT[k].nDist = false
 		end
 	end
+end
+
+-- Auto Focus Healer
+function FindHealer(tab)
+	local cTar = tab and type(tab) == &amp;quot;string&amp;quot; and { tab } or tab and tab or cTarFinder(nil, true)
+	local enemyHealerTab = { }
+	for i=1, #cTar do
+		local nSpec =  string.sub(string.lower(select(2, UnitClass(cTar[i]))), 1, 3)
+		if nSpec == &amp;quot;pal&amp;quot; or nSpec == &amp;quot;dru&amp;quot; or nSpec == &amp;quot;sha&amp;quot; or nSpec == &amp;quot;pri&amp;quot; or nSpec == &amp;quot;mon&amp;quot; then
+			if UnitPowerMax(cTar[i]) &amp;gt;= 29000
+			 and not UnitBuffID(cTar[i], 24858)
+			 and not UnitBuffID(cTar[i], 15473)
+			 and not UnitBuffID(cTar[i], 324)
+			 and UnitCanAttack(&amp;quot;player&amp;quot;, cTar[i]) then
+				table.insert(enemyHealerTab, { guid = UnitGUID(cTar[i]), unit = cTar[i] } )
+			end
+		end
+	end
+
+	return enemyHealerTab
 end
 
 
@@ -902,7 +969,8 @@ if select(4, RuneCheck()) &amp;gt; 0
 	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Plague Leech</Name><Default>false</Default><SpellID>123693</SpellID><Actions></Actions><Lua>local cTar = cTarFinder(nil, true)
 for i=1, #cTar do
-	if not UnitIsUnit(PQR_CustomTarget, cTar[i]) then
+	if not UnitIsUnit(PQR_CustomTarget, cTar[i]) 
+	 and IsSpellInRange(GetSpellInfo(123693), cTar[i]) == 1 then
 		local shGUID = string.sub(tostring(UnitGUID(cTar[i])), -5, -1)
 	 	if nDoTTargets[shGUID] then
 			if nDoTTargets[shGUID][55095]
@@ -1138,7 +1206,14 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Mouseover</Target><CancelChannel>Fa
  and not Nova_BloodStrikeOverwrite_Check then
  	local shGUID = string.sub(tostring(UnitGUID(PQR_CustomTarget)), -5, -1)
  	if nDoTTargets[shGUID] then
- 		if nDoTTargets[shGUID][&amp;apos;nDist&amp;apos;] &amp;lt; 10 then
+ 		local nDist = 999
+ 		if Nova_DisableRangeCheck_Check then
+ 			nDist = nDoTTargets[shGUID].nDist
+ 		else
+ 			nDist = DistanceBetweenUnit(uiPlayer, nDoTTargets[shGUID].nDist)
+ 		end
+ 		
+ 		if nDist &amp;lt; 10 then
  			return true
  		elseif IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
  			return true
@@ -1561,7 +1636,7 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>True<
 	 	 	end
 		end
 	end
-end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pestilence - Auto</Name><Default>false</Default><SpellID>50842</SpellID><Actions></Actions><Lua>local nearby = 0
+end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Pestilence - Auto</Name><Default>false</Default><SpellID>50842</SpellID><Actions></Actions><Lua>local nearby, uiPlayer, nDoTTargets = 0, uiPlayer, nDoTTargets
 if PQR_SpellAvailable(50842)
  and PQ_ValidUnit
  and IsSpellInRange(GetSpellInfo(45462), PQR_CustomTarget) == 1 then
@@ -1572,12 +1647,16 @@ if PQR_SpellAvailable(50842)
 	 		nearby = nearby + 1
 			for k,v in pairs(nDoTTargets) do
 				if v.nDist then
-					if v.nDist &amp;lt; 999 then
-						if v.nDist &amp;lt;= 10 
-						 and ( not nDoTTargets[k][55095]
-						 or not nDoTTargets[k][55078] ) then
-							nearby = nearby + 1
-						end
+					local nDist = 999
+					if Nova_DisableRangeCheck_Check then
+						nDist = v.nDist
+					else
+						nDist = DistanceBetweenUnit(uiPlayer, v.nDist)
+					end
+					if nDist &amp;lt;= 10 
+					 and ( not nDoTTargets[k][55095]
+					 or not nDoTTargets[k][55078] ) then
+						nearby = nearby + 1
 					end
 				end
 			end
@@ -1587,7 +1666,8 @@ end
 
 if nearby &amp;gt;= 2 then
 	return true
-end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil - Auto</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>local nearby = 0
+end</Lua><RecastDelay>100</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Blood Boil - Auto</Name><Default>false</Default><SpellID>48721</SpellID><Actions></Actions><Lua>local nearby, uiPlayer, nDoTTargets = 0, uiPlayer, nDoTTargets
+
 if PQR_SpellAvailable(48721)
  and IsPlayerSpell(108170)
  and PQ_ValidUnit
