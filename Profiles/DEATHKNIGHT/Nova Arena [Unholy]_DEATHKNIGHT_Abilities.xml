@@ -1870,13 +1870,18 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
  and not UnitIsDead(&amp;quot;pet&amp;quot;)
  and UnitExists(&amp;quot;focus&amp;quot;)
  and UnitCanAttack(&amp;quot;player&amp;quot;, &amp;quot;focus&amp;quot;)
- and not UnitIsDead(&amp;quot;focus&amp;quot;) then
+ and not UnitIsDead(&amp;quot;focus&amp;quot;) 
+ and UnitAffectingCombat(&amp;quot;player&amp;quot;) then
  	if not UnitExists(&amp;quot;pettarget&amp;quot;) or not UnitIsUnit(&amp;quot;pettarget&amp;quot;, &amp;quot;focus&amp;quot;) then
+ 		print(&amp;quot;Pet Auto Attack&amp;quot;)
  		CastPetAction(1, &amp;quot;focus&amp;quot;)
  	end
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability><Ability><Name>Icy Touch (Dispel)</Name><Default>false</Default><SpellID>45477</SpellID><Actions></Actions><Lua>local DispelList = {
-	1022, -- Hand of Protection
-	132158, -- Nature&amp;apos;s Swiftness
+	6940,   -- Hand of Sacrifice
+	1022,   -- Hand of Protection
+	29166,  -- Innervate
+	54428,  -- Divine Plea
+	6346    -- Fear Ward
 }
 local cTar = cTarFinder(nil, true)
 
@@ -1919,6 +1924,6 @@ end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False
  and PQ_ValidUnit
  and nUnitFacing
  and IsSpellInRange(GetSpellInfo(45477), PQR_CustomTarget) == 1 
- and select(4, RuneCheck()) == 0 and select(3, RuneCheck()) &amp;gt; 0 then
+ and select(4, RuneCheck()) == 0 and select(3, RuneCheck()) &amp;gt; 0 and select(1, RuneCheck()) == 0 then
  	return true
 end</Lua><RecastDelay>0</RecastDelay><Target>Custom</Target><CancelChannel>False</CancelChannel><SkipUnknown>True</SkipUnknown></Ability></DEATHKNIGHT>
